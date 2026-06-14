@@ -1,0 +1,100 @@
+/* 
+  Component: Modal
+  共用的彈出視窗元件，提供給各頁面（如 Editor, Admin）使用。
+*/
+
+@use '../base/variables' as var;
+@use './button' as btn;
+
+.c-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.c-modal {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+
+    &__icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    &__title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    &__message {
+        color: #666;
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+
+    &__preview-wrapper {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+
+        :deep(.c-sticky-note) {
+            position: relative !important;
+            left: 0 !important;
+            top: 0 !important;
+            transform: none !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        gap: 1rem;
+
+        /* 將內部按鈕均分寬度 */
+        .c-button,
+        button {
+            flex: 1;
+        }
+    }
+}
+
+// Modal Buttons
+.c-button {
+    @include btn.btn-action;
+
+    &--secondary {
+        background: var.$will-red;
+        color: white;
+    }
+
+    &--primary {
+        background: var.$will-blue;
+        color: white;
+    }
+
+    &--danger {
+        background: var.$will-red; // #dc2626;
+        color: white;
+    }
+}

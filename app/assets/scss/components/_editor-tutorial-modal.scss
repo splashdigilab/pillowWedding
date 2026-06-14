@@ -1,0 +1,167 @@
+@use '../base/variables' as var;
+
+.c-modal--tutorial {
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  min-height: 0;
+
+  .c-modal__title {
+    margin-bottom: 0.5rem;
+  }
+
+  .c-modal__message {
+    margin-bottom: 1.25rem;
+  }
+}
+
+.tutorial-demo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.5rem;
+}
+
+.tutorial-demo__stage {
+  flex: 1;
+  min-height: 250px;
+  width: 100%;
+  background-color: var.$will-blue;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  font-family: 'JasonHandwriting2', sans-serif;
+}
+
+/* 與 editor 一致的被選取物件：outline + 拖曳條 */
+.tutorial-demo__object-wrap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+}
+
+.tutorial-demo__object {
+  position: relative;
+  padding: 8px 14px;
+  min-width: 56px;
+  min-height: 32px;
+  color: white;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+  // border-radius: 4px;
+  /* 與 editor is-selected 同款 */
+  outline: 2px solid var.$editor-selection-outline;
+  outline-offset: 4px;
+  pointer-events: none;
+}
+
+.tutorial-demo__object-text {
+  display: block;
+  font-size: 1.5rem;
+}
+
+/* 手勢圖：跟著編輯框一起動畫 */
+.tutorial-demo__guesture {
+  position: absolute;
+  right: -50%;
+  top: 0;
+  transform: translate(0%, 100%);
+  z-index: 10;
+  width: auto;
+  height: 60px;
+  display: block;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+/* ========== 步驟 0：雙指拖移示意動畫 ========== */
+.tutorial-demo--step-0 .tutorial-demo__object-wrap {
+  animation: tutorial-drag-object 2.8s ease-in-out infinite;
+}
+
+@keyframes tutorial-drag-object {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translate(0, 0);
+  }
+
+  35% {
+    transform: translate(-50%, -50%) translate(18px, 20px);
+  }
+
+  70% {
+    transform: translate(-50%, -50%) translate(18px, 20px);
+  }
+}
+
+/* ========== 步驟 1：雙指旋轉示意動畫 ========== */
+.tutorial-demo--step-1 .tutorial-demo__object-wrap {
+  animation: tutorial-rotate-object 3s ease-in-out infinite;
+}
+
+@keyframes tutorial-rotate-object {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  25% {
+    transform: translate(-50%, -50%) rotate(-18deg);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) rotate(-18deg);
+  }
+
+  75% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+}
+
+/* ========== 步驟 2：雙指縮放示意動畫 ========== */
+.tutorial-demo--step-2 .tutorial-demo__object-wrap {
+  animation: tutorial-scale-object 2.8s ease-in-out infinite;
+}
+
+@keyframes tutorial-scale-object {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  35% {
+    transform: translate(-50%, -50%) scale(0.72);
+  }
+
+  70% {
+    transform: translate(-50%, -50%) scale(0.72);
+  }
+}
+
+.tutorial-steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+}
+
+.tutorial-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #e2e8f0;
+  transition: all 0.3s ease;
+
+  &.is-active {
+    background-color: var.$will-blue;
+    transform: scale(1.2);
+  }
+}

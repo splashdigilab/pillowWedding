@@ -1,0 +1,80 @@
+/* 共用按鈕元件 - mixins 供 editor 等頁面使用 */
+
+@mixin btn-reset {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// 圓形選擇按鈕 44px（筆刷色、文字色）
+@mixin btn-circle-sm {
+  @include btn-reset;
+  width: 32px;
+  height: 32px;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+// 圓形選擇按鈕 active 狀態
+@mixin btn-circle-sm-active {
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+// 方形選擇按鈕 64px（背景、貼紙）
+@mixin btn-square {
+  @include btn-reset;
+  width: 40px;
+  height: 40px;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+  border: none;
+  overflow: hidden;
+}
+
+// 方形選擇按鈕 52px（造型）
+@mixin btn-square-sm {
+  @include btn-reset;
+  width: 52px;
+  height: 52px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 0.5rem;
+  flex-shrink: 0;
+}
+
+// 主要操作按鈕（備存草稿、上傳大螢幕）
+@mixin btn-action {
+  @include btn-reset;
+  flex: 1;
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 1rem;
+  white-space: nowrap;
+  text-decoration: none;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// 圓形圖示按鈕 56px（上一步、下一步）
+@mixin btn-circle-icon {
+  @include btn-reset;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  flex-shrink: 0;
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}

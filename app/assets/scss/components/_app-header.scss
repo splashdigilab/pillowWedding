@@ -1,0 +1,100 @@
+.c-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    padding: 0 16px;
+    z-index: 100;
+    /* 預設讓 header 本身不阻擋點擊，只有按鈕/logo 擋點擊 */
+    pointer-events: none;
+
+    // 原本的底色跟陰影
+    background: white;
+    box-shadow: var(--shadow-default);
+    border-radius: 0 0 1rem 1rem;
+
+    // Safe area for notched phones
+    padding-top: env(safe-area-inset-top, 0px);
+    height: calc(60px + env(safe-area-inset-top, 0px));
+
+    // Transparent modifier
+    &--transparent {
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    // Relative modifier
+    &--relative {
+        position: relative;
+    }
+
+    &__back-btn {
+        position: absolute;
+        left: 4px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        // padding: 8px;
+        cursor: pointer;
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        img {
+            width: 40px;
+            height: 40px;
+        }
+    }
+
+    &__logo {
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        // Adjust for safe area offset difference
+        margin-top: calc(env(safe-area-inset-top, 0px) / 2);
+
+        img {
+            height: 28px;
+            width: auto;
+            filter: drop-shadow(1px 1px 0px rgba(0, 0, 0, 0.15));
+        }
+    }
+
+    &__trailing {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: auto;
+    }
+
+    &__help-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        color: var(--color-text-secondary, #666);
+        cursor: pointer;
+        transition: color 0.2s, background 0.2s;
+
+        img {
+            width: 32px;
+            height: 32px;
+            display: block;
+        }
+    }
+}

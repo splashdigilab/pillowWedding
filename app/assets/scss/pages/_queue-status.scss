@@ -1,0 +1,108 @@
+/*
+  Page: Queue Status Minimal
+  佇列狀態與等待時間頁面 
+*/
+.p-queue-status-minimal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f9fa;
+  /* Very light gray/off-white background */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #111;
+}
+
+.p-queue-status-minimal__container {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 60px;
+}
+
+.p-queue-status-minimal__title {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 40px 0;
+  text-align: center;
+}
+
+.p-queue-status-minimal__stats {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.p-queue-status-minimal__stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.p-queue-status-minimal__stat-label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.p-queue-status-minimal__stat-value {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  /* Prevents jumping during countdown */
+}
+
+.p-queue-status-minimal__stat-value small {
+  font-size: 20px;
+  font-weight: 500;
+  color: #888;
+  margin-left: 4px;
+}
+
+.p-queue-status-minimal__stat-value.is-countdown {
+  color: #000;
+}
+
+.p-queue-status-minimal__stat-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 24px 0;
+  width: 100%;
+}
+
+.p-queue-status-minimal__actions {
+  display: flex;
+  justify-content: center;
+}
+
+.p-queue-status-minimal__btn-home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  color: #fff;
+  text-decoration: none;
+  padding: 16px 32px;
+  border-radius: 100px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.p-queue-status-minimal__btn-home:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}

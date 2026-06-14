@@ -1,0 +1,899 @@
+@use '../base/variables' as var;
+@use '../base/editor-variables' as ed;
+@use '../components/button' as btn;
+@use '../components/sticky-note' as sn;
+@use '../mixins/editor' as edm;
+
+/* ========== 全域：編輯器頁面鎖定視窗 ========== */
+body.is-editor-page {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  background-image: url('/paperBg.webp');
+  background-size: cover;
+  background-position: center;
+}
+
+body.is-editor-page #__nuxt,
+body.is-editor-page #app {
+  overflow: hidden;
+  height: 100%;
+  height: 100dvh;
+}
+
+.p-editor__loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 1);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-weight: bold;
+}
+
+.p-editor__loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var.$will-blue;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spinner-rotate 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========== 主容器與畫布 ========== */
+.p-editor {
+  position: relative;
+  margin: 0 auto;
+  max-width: 1024px;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  // Canvas Section - 撐滿剩餘空間，直向撐滿寬度、橫向撐滿高度
+  &__canvas-section {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    touch-action: pan-x pan-y;
+    /* 允許 pan、禁用 pinch-zoom，讓 touchmove 能觸發且不縮放畫面 */
+  }
+
+  &__canvas-container {
+    aspect-ratio: 1 / 1;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    position: relative;
+    touch-action: pan-x pan-y;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* 
+      編輯器預覽：模擬實體便利貼黏在牆壁上的陰影。
+      我們現在將陰影移到 canvas-scaler，因為那裡才有 --shadow-mask 變數。
+    */
+  }
+
+  /* 虛擬縮放層：永遠固定 600px 大小 */
+  &__canvas-scaler {
+    @include sn.sticky-note-virtual-scaler(editor-canvas);
+    @include sn.sticky-note-shadow; // Apply shadow here to inherit --shadow-mask
+    flex-shrink: 0;
+    transform-origin: center center;
+    position: relative;
+  }
+
+  /* 可裁切層：背景、文字、貼紙（由內聯 style 套用 mask-image） */
+  &__canvas {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    cursor: default;
+
+    /*
+      模擬實體便利貼光影與紙張材質（與 StickyNote 共用物理打光邏輯）
+    */
+    &::before {
+      @include sn.sticky-note-lighting-overlay;
+    }
+
+    &::after {
+      @include sn.sticky-note-paper-texture-overlay;
+    }
+  }
+
+  /* UI 層：編輯框置頂，不被裁切（繪圖模式時全部不接收點擊） */
+  &__canvas-ui {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* 繪圖模式：UI 層與文字區塊不接收點擊，由繪圖層獨佔 */
+  &__canvas-container.is-draw-mode {
+
+    .p-editor__canvas-ui,
+    .p-editor__canvas-ui * {
+      pointer-events: none !important;
+    }
+  }
+
+  /* 文字內容（可裁切）- z-index 由 template 依選取狀態動態設定 */
+  &__text-content {
+    position: absolute;
+    transform-origin: center center;
+    pointer-events: auto;
+  }
+
+  &__canvas-text-wrapper {
+    @include sn.sticky-note-text-block-width;
+    @include sn.sticky-note-text-box;
+    /* Wrapper doesn't need outline or word-break, it just provides padding and sizing */
+  }
+
+  &__canvas-text {
+    width: 100%;
+    height: 100%;
+    outline: none;
+    word-break: break-word;
+    @include sn.sticky-note-font-size;
+
+    &.is-empty::before {
+      content: attr(data-placeholder);
+      // color: color-mix(in srgb, var(--text-color, #333) 45%, transparent);
+    }
+
+  }
+
+  &__preview-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    margin: 0 auto 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+
+    :deep(.c-sticky-note) {
+      position: relative !important;
+      left: 0 !important;
+      top: 0 !important;
+      transform: none !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  }
+
+  /* 貼紙內容（可裁切）- z-index 由 template 依選取狀態動態設定 */
+  &__sticker-content {
+    position: absolute;
+    pointer-events: none;
+
+    /* 便利貼/文字 tab 時可點擊進入貼紙編輯 */
+    &.is-sticker-clickable {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    @include sn.sticky-note-sticker-size;
+    @include sn.sticky-note-sticker-layout;
+  }
+
+  &__sticker-img {
+    @include sn.sticky-note-sticker-img;
+  }
+
+  /* 手繪層 (Fabric.js)：永遠最底層，除非啟動 drawMode 才到最上層 */
+  &__drawing-layer {
+    display: flex;
+    align-items: center;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    touch-action: none;
+
+    &.is-active {
+      cursor: crosshair;
+    }
+  }
+
+  &__drawing-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__drawing-preview {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    pointer-events: none;
+  }
+
+  /* ========== 中心對齊參考線 ========== */
+  &__guide-line {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+
+    &--vertical {
+      left: 50%;
+      width: 0;
+      border-left: 1px dashed rgba(255, 255, 255, 0.7);
+      mix-blend-mode: screen;
+      transform: translateX(-0.5px);
+    }
+
+    &--horizontal {
+      top: 50%;
+      height: 0;
+      border-top: 1px dashed rgba(255, 255, 255, 0.7);
+      mix-blend-mode: screen;
+      transform: translateY(-0.5px);
+    }
+  }
+
+  /* ========== 編輯框（文字／貼紙共用） ========== */
+  &__edit-frame {
+    position: absolute;
+    transform-origin: center center;
+    pointer-events: auto;
+    cursor: grab;
+    touch-action: none;
+
+    &--text {
+      /* 文字框：left:0 讓可用寬度不受位置影響，大小依 sizer 縮放至文字大小 */
+      pointer-events: none;
+
+      .p-editor__edit-frame-transform-handle,
+      .p-editor__edit-frame-delete {
+        pointer-events: auto;
+      }
+    }
+
+    /* sizer：與 canvas-text 完全相同尺寸，撐開編輯框 */
+    &-sizer {
+      @include sn.sticky-note-text-block-width;
+      @include sn.sticky-note-text-box;
+      word-break: break-word;
+      @include sn.sticky-note-font-size;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    &--sticker {
+      @include sn.sticky-note-sticker-size;
+      @include sn.sticky-note-sticker-layout;
+    }
+
+    &.is-selected {
+      outline: 2px solid var.$editor-selection-outline;
+      outline-offset: 4px;
+      border-radius: 0;
+    }
+
+    &.is-dragging {
+      cursor: grabbing;
+      transition: none;
+    }
+
+    &.is-transforming {
+      cursor: nwse-resize;
+    }
+  }
+
+  &__edit-frame-delete {
+    position: absolute;
+    /* 對齊紫色框左上角：outline 2px + outline-offset 4px，左上外角在 (-4px,-4px) */
+    top: -4px;
+    left: -4px;
+    width: ed.$editor-edit-frame-delete-size;
+    height: ed.$editor-edit-frame-delete-size;
+    background: #f43f5e;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translate(-50%, -50%) scale(var(--inverse-scale, 1));
+    transform-origin: center center;
+    backface-visibility: hidden;
+  }
+
+  &__edit-frame-transform-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: ed.$editor-edit-frame-transform-handle-size;
+    height: ed.$editor-edit-frame-transform-handle-size;
+    background: #3b82f6;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    font-size: 1rem;
+    cursor: nwse-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background ed.$editor-transition-duration ease-in-out;
+    z-index: 2;
+    transform: translate(50%, 50%) scale(var(--inverse-scale, 1));
+    transform-origin: bottom right;
+    backface-visibility: hidden;
+  }
+
+  /* ========== 控制面板：Tab Bar + Tab Content ========== */
+  &__control-panel {
+    padding: 0;
+    background: white;
+    box-shadow: var(--shadow-default);
+    overflow-y: auto;
+    flex-shrink: 0;
+    border-radius: 1rem 1rem 0 0;
+    transition: height ed.$editor-transition-duration ease-in-out;
+    /* 使用 grid 讓子元素可以在同一個區域重疊，達到 position:absolute 的效果但不破壞父層高度 */
+    display: grid;
+    align-items: end;
+  }
+
+  &__top-actions {
+    position: absolute;
+    right: 0.5rem;
+    bottom: calc(72px + 56px + 0.5rem); // 落在 control-panel 上方，與 tab 區有距離
+    display: flex;
+    justify-content: flex-end;
+    z-index: 10;
+  }
+
+  &__clear-btn {
+    @include btn.btn-reset;
+    width: ed.$editor-draw-btn-size;
+    height: ed.$editor-draw-btn-height;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 999px;
+    background: var.$will-red;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: opacity ed.$editor-transition-duration ease-in-out, transform 0.1s ease-in-out;
+
+    &:active {
+      transform: scale(0.95);
+    }
+
+    &-icon {
+      width: 22px;
+      height: 22px;
+      display: block;
+      object-fit: contain;
+      /* 若 src="/undo.svg" 是黑色的，可用 filter 轉成白色 */
+      filter: brightness(0) invert(1);
+    }
+  }
+
+  /* 一鍵清除區塊出現/消失漸變（與 tab bar 同條件）；出現 ease-in-out、消失 ease-in */
+  .p-editor-top-actions-enter-active {
+    transition: opacity ed.$editor-transition-duration ease-in-out, transform ed.$editor-transition-duration ease-in-out;
+  }
+
+  .p-editor-top-actions-leave-active {
+    transition: opacity ed.$editor-transition-duration ease-in-out, transform ed.$editor-transition-duration ease-in-out;
+  }
+
+  .p-editor-top-actions-enter-from,
+  .p-editor-top-actions-leave-to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .p-editor-top-actions-enter-to,
+  .p-editor-top-actions-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  &__tab-bar {
+    /* 讓它與 tab-content 疊在同一個 grid 區域，互不推擠 */
+    grid-area: 1 / 1;
+    width: 100%;
+    display: flex;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    overflow-x: auto;
+    justify-content: space-around;
+    box-sizing: border-box;
+  }
+
+  /* Tab Bar 出現/消失：高度 + 透明度一起過渡；出現 ease-in-out、消失 ease-in */
+  .p-editor-tab-bar-enter-active {
+    transition:
+      opacity ed.$editor-transition-duration ease-in-out,
+      transform ed.$editor-transition-duration ease-in-out,
+      max-height ed.$editor-transition-duration ease-in-out;
+    overflow: hidden;
+  }
+
+  .p-editor-tab-bar-leave-active {
+    transition:
+      opacity ed.$editor-transition-duration ease-in-out,
+      transform ed.$editor-transition-duration ease-in-out,
+      max-height ed.$editor-transition-duration ease-in-out;
+    overflow: hidden;
+  }
+
+  .p-editor-tab-bar-enter-from,
+  .p-editor-tab-bar-leave-to {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  .p-editor-tab-bar-enter-to,
+  .p-editor-tab-bar-leave-from {
+    max-height: 6rem;
+    /* 足夠涵蓋 icon + label + padding */
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  &__tab-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    transition: border-color ed.$editor-transition-duration ease-in-out, background ed.$editor-transition-duration ease-in-out;
+    position: relative;
+    min-width: 0;
+
+    // &:hover {
+    //   background: #f9f9f9;
+    // }
+
+    &.is-active {
+      border-bottom-color: #FF99B2;
+
+      .p-editor__tab-label {
+        color: var.$color-grey;
+        font-weight: bold;
+      }
+    }
+  }
+
+  &__tab-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  &__tab-label {
+    font-size: 0.75rem;
+    color: var.$color-grey;
+    white-space: nowrap;
+    transition: color ed.$editor-transition-duration ease-in-out, font-weight ed.$editor-transition-duration ease-in-out;
+  }
+
+  &__tab-content {
+    /* 與 tab-bar 重疊在同一個 grid 區域 */
+    grid-area: 1 / 1;
+    width: 100%;
+
+    padding: 1rem 0;
+    max-width: ed.$editor-control-max-width;
+    margin: 0 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: ed.$editor-grid-gap;
+    box-sizing: border-box;
+    /* 展開時給足夠 max-height，讓 leave 動畫能從此值過渡到 0（height: auto 無法過渡） */
+    max-height: 70vh;
+    z-index: 5;
+
+    /* 貼紙 tab：固定高度，內部 sticker-grid 可捲動（維持原狀） */
+    &:has(.p-editor__sticker-grid) {
+      height: ed.$editor-tab-content-sticker-height;
+      max-height: ed.$editor-tab-content-sticker-height;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  /* Tab 內容切換：用 max-height 做收合；出現 ease-in-out、消失 ease-in */
+  .p-editor-tab-enter-active {
+    transition:
+      opacity ed.$editor-transition-duration ease-in-out,
+      padding ed.$editor-transition-duration ease-in-out,
+      max-height ed.$editor-transition-duration ease-in-out;
+  }
+
+  .p-editor-tab-leave-active {
+    transition:
+      opacity ed.$editor-transition-duration ease-in-out,
+      padding ed.$editor-transition-duration ease-in-out,
+      max-height ed.$editor-transition-duration ease-in-out;
+  }
+
+  .p-editor-tab-enter-from,
+  .p-editor-tab-leave-to {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+  }
+
+  .p-editor-tab-enter-to,
+  .p-editor-tab-leave-from {
+    max-height: 70vh;
+    opacity: 1;
+  }
+
+  /* 貼紙 tab 的過渡用固定高度 */
+  .p-editor__tab-content:has(.p-editor__sticker-grid).p-editor-tab-enter-to,
+  .p-editor__tab-content:has(.p-editor__sticker-grid).p-editor-tab-leave-from {
+    max-height: ed.$editor-tab-content-sticker-height;
+  }
+
+  &__control-section {
+    max-width: ed.$editor-control-max-width;
+    margin: 0 0.5rem;
+    // padding-left: 1rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &:has(.p-editor__brush-slider) {
+      padding-right: 1rem;
+    }
+
+    /* 貼紙：control-section 撐滿、不捲動 */
+    &:has(.p-editor__sticker-grid) {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+  }
+
+  &__control-title {
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: var.$color-grey;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ========== 控制項：筆刷／顏色／對齊／材質／造型／貼紙 ========== */
+  // 移除舊的繪圖控制項樣式，使用統一的顏色選擇器
+
+  &__brush-slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 3px;
+    appearance: none;
+    background: #7f7f7f;
+    outline: none;
+    cursor: pointer;
+
+    &::-webkit-slider-thumb {
+      appearance: none;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 50%;
+      background: white;
+      border: 2px solid #7f7f7f;
+      cursor: pointer;
+      // box-shadow: var(--shadow-soft);
+    }
+
+    &::-moz-range-thumb {
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 50%;
+      background: white;
+      border: 2px solid #7f7f7f;
+      cursor: pointer;
+      // box-shadow: var(--shadow-soft);
+    }
+  }
+
+  // 文字顏色選擇器 - 圓形按鈕（符合設計稿）
+  &__color-grid {
+    @include edm.editor-grid-wrap;
+  }
+
+  &__color-btn {
+    @include btn.btn-circle-sm;
+    position: relative;
+    background: var(--btn-color);
+
+    &.is-active {
+      background: color-mix(in srgb, var(--btn-color) 50%, transparent);
+    }
+
+    &--eraser {
+      background: white;
+
+      &.is-active {
+        opacity: 0.5;
+      }
+    }
+  }
+
+  &__color-check {
+    @include edm.editor-picker-check;
+    z-index: 1;
+  }
+
+  &__color-eraser-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+  }
+
+  // 文字對齊（與選擇便利貼造型一致：圖片即按鈕，選取時 opacity 0.5）
+  &__align-row {
+    @include edm.editor-grid-scroll-x;
+  }
+
+  &__align-btn {
+    @include btn.btn-reset;
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+
+
+    &.is-active .p-editor__align-icon {
+      opacity: 0.5;
+    }
+  }
+
+  &__align-icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  // 材質/背景圖片選擇器：超過寬度時換行，不左右滑動
+  &__background-grid {
+    @include edm.editor-grid-wrap;
+  }
+
+  &__background-btn {
+    @include btn.btn-square;
+    position: relative;
+
+    &.is-active {
+      .p-editor__background-img {
+        opacity: 0.5;
+      }
+    }
+  }
+
+  &__background-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__background-check {
+    @include edm.editor-picker-check;
+  }
+
+  // Shape Grid - 樣式/形狀選擇器（符合設計稿）
+  &__shape-grid {
+    @include edm.editor-grid-scroll-x(ed.$editor-grid-gap);
+  }
+
+  &__shape-btn {
+    @include btn.btn-reset;
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+
+    &.is-active {
+      .p-editor__shape-icon {
+        opacity: 0.5;
+      }
+    }
+  }
+
+  &__shape-icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: #7f7f7f;
+    mask-image: var(--shape-svg);
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-image: var(--shape-svg);
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+  }
+
+  &__shape-check {
+    @include edm.editor-picker-check;
+  }
+
+  // Sticker Grid - 貼紙選擇器，撐滿 control-section，僅此處可上下捲動
+  &__sticker-grid {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: ed.$editor-grid-gap;
+    align-items: flex-start;
+    align-content: flex-start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    @include edm.editor-scrollbar-hidden;
+  }
+
+  &__sticker-btn {
+    @include btn.btn-square;
+    border: 1px solid #e5e5e5;
+    background: white;
+    padding: 0.5rem;
+
+    &-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.25));
+    }
+  }
+
+  /* ========== 底部按鈕列 ========== */
+  &__bottom-actions {
+    padding: 0 0.5rem 1rem 0.5rem;
+    background: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  &__text-actions {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  &__action-btn {
+    @include btn.btn-action;
+
+    &--secondary {
+      background: var.$will-red;
+      color: white;
+
+      // &:hover:not(:disabled) {
+      //   background: #d43f5f;
+      //   transform: translateY(-1px);
+      //   box-shadow: 0 4px 12px rgba(232, 76, 108, 0.3);
+      // }
+    }
+
+    &--primary {
+      background: var.$will-blue;
+      color: white;
+
+      // &:hover:not(:disabled) {
+      //   background: #1fb5c7;
+      //   transform: translateY(-1px);
+      //   box-shadow: 0 4px 12px rgba(34, 197, 217, 0.3);
+      // }
+
+      &:active:not(:disabled) {
+        transform: translateY(0);
+      }
+    }
+
+    &--share {
+      background: var.$will-red;
+      color: white;
+    }
+
+    // 繪圖模式的完成按鈕（較寬）
+    &--complete {
+      flex-grow: 1;
+    }
+
+    // 一般模式的單個按鈕（全寬）
+    &--full {
+      flex-grow: 1;
+    }
+  }
+
+  // 繪圖模式圓形按鈕（上一步/下一步）- 固定尺寸確保正圓，will-red，與完成按鈕同高
+  &__draw-btn {
+    @include btn.btn-reset;
+    width: ed.$editor-draw-btn-size;
+    height: ed.$editor-draw-btn-height;
+    flex-shrink: 0;
+    flex-grow: 0;
+    border: none;
+    border-radius: 999px;
+    background: var.$will-red;
+    padding: 0;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    // &:active:not(:disabled) {
+    //   transform: scale(0.95);
+    // }
+  }
+
+  &__draw-btn-icon {
+    width: 22px;
+    height: 22px;
+    display: block;
+    object-fit: contain;
+
+    &--redo {
+      transform: scaleX(-1);
+    }
+  }
+
+}

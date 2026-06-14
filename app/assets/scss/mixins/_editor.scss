@@ -1,0 +1,46 @@
+/**
+ * Editor 頁面共用 mixins
+ * 用於減少 _editor.scss 重複、方便維護
+ */
+@use '../base/editor-variables' as ed;
+
+/// 隱藏捲軸（橫向或縱向捲動區塊使用）
+@mixin editor-scrollbar-hidden {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  scrollbar-width: none;
+}
+
+/// 選取勾選圖示疊加層（材質/造型/顏色等選取時的小勾）
+@mixin editor-picker-check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: ed.$editor-picker-check-size;
+  height: ed.$editor-picker-check-size;
+  object-fit: contain;
+  filter: drop-shadow(var(--shadow-soft));
+}
+
+/// 選項網格：換行、間距、陰影（材質、顏色等）
+@mixin editor-grid-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: ed.$editor-grid-gap;
+  filter: drop-shadow(var(--shadow-soft));
+}
+
+/// 選項橫向捲動列（造型、對齊等）
+/// @param $gap - 間距，預設 0.75rem（對齊列）；造型列可傳 0.5rem
+@mixin editor-grid-scroll-x($gap: 0.75rem) {
+  display: flex;
+  gap: $gap;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  filter: drop-shadow(var(--shadow-soft));
+  @include editor-scrollbar-hidden;
+}

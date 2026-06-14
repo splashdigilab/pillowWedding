@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 1000 1000">
+  <!-- Generator: Adobe Illustrator 30.2.1, SVG Export Plug-In . SVG Version: 2.1.1 Build 1)  -->
+  <defs>
+    <filter id="drop-shadow-1" x="0" y="79.972" width="1000" height="840.056" filterUnits="userSpaceOnUse">
+      <feOffset dx="0" dy="6.502"/>
+      <feGaussianBlur result="blur" stdDeviation="4.877"/>
+      <feFlood flood-color="#350d6a" flood-opacity=".4"/>
+      <feComposite in2="blur" operator="in"/>
+      <feComposite in="SourceGraphic"/>
+    </filter>
+  </defs>
+  <g filter="url(#drop-shadow-1)">
+    <path d="M997.775,424.737c.057-.202.12-.401.175-.602.722-2.645,1.241-5.319,1.593-8.009.042-.315.08-.629.116-.945.072-.628.071-1.259.124-1.889.164-1.965.241-3.927.211-5.894-.009-.652.018-1.299-.013-1.951-.021-.454-.062-.903-.093-1.357-.157-2.237-.447-4.458-.852-6.665-.074-.405-.099-.811-.181-1.216-.053-.256-.118-.507-.174-.762-.117-.538-.302-1.062-.434-1.599-.496-2.006-1.072-3.988-1.775-5.943-.198-.55-.399-1.095-.613-1.642-.241-.611-.511-1.205-.771-1.809-.749-1.735-1.6-3.428-2.517-5.1-.244-.446-.392-.922-.649-1.364-.129-.222-.302-.402-.434-.623-.201-.334-.351-.69-.558-1.021l-167.601-268.06c-.131-.21-.302-.383-.435-.591-1.438-2.238-2.994-4.386-4.704-6.402-.225-.266-.463-.515-.693-.777-.281-.32-.572-.623-.858-.937-1.437-1.567-2.939-3.068-4.529-4.474-.206-.182-.396-.382-.604-.562-.396-.34-.817-.652-1.221-.982-.336-.273-.68-.53-1.02-.796-1.29-1.007-2.619-1.961-3.989-2.861-.414-.271-.822-.546-1.242-.807-.692-.43-1.385-.855-2.095-1.257-.264-.15-.534-.281-.799-.426-1.277-.7-2.571-1.367-3.9-1.975-.338-.155-.685-.288-1.027-.437-1.132-.492-2.266-.98-3.433-1.403-.104-.038-.21-.065-.314-.102-1.224-.437-2.46-.848-3.716-1.207-.056-.016-.108-.037-.165-.054-2.528-.712-5.132-1.216-7.776-1.596-.509-.073-1.012-.148-1.523-.208-1.722-.203-3.464-.325-5.224-.378-.377-.012-.747-.047-1.123-.051-.238-.003-.469-.032-.708-.032H227.77c-.24,0-.472.03-.71.032-.378.005-.751.039-1.13.051-1.75.053-3.482.175-5.195.376-.521.062-1.034.137-1.552.212-2.636.378-5.235.883-7.758,1.593-.058.017-.115.039-.173.056-1.247.355-2.471.764-3.685,1.197-.122.043-.246.075-.367.119-1.154.419-2.277.904-3.399,1.39-.346.151-.695.286-1.038.441-1.317.602-2.599,1.264-3.864,1.956-.289.157-.581.3-.867.463-.698.396-1.377.813-2.057,1.237-.423.263-.833.538-1.251.812-1.359.893-2.676,1.839-3.957,2.837-.361.28-.722.55-1.077.84-.394.322-.804.625-1.191.957-.211.18-.401.382-.609.565-1.584,1.4-3.079,2.892-4.51,4.452-.296.324-.598.636-.887.967-.228.261-.463.508-.686.772-1.71,2.015-3.263,4.161-4.7,6.398-.133.208-.303.381-.435.591L9.071,376.346c-.207.332-.357.688-.558,1.023-.131.219-.305.4-.434.621-.256.441-.404.917-.648,1.363-.918,1.673-1.769,3.365-2.518,5.101-.262.605-.531,1.202-.772,1.812-.214.545-.414,1.087-.611,1.636-.705,1.958-1.283,3.946-1.78,5.957-.131.532-.314,1.051-.429,1.584-.056.256-.122.509-.175.766-.082.403-.107.809-.181,1.215-.405,2.207-.696,4.428-.852,6.666-.032.455-.073.906-.094,1.361-.03.649-.003,1.293-.012,1.942-.029,1.969.046,3.932.211,5.899.052.631.051,1.261.124,1.889.036.315.073.629.114.944.353,2.691.873,5.365,1.594,8.01.056.203.119.402.176.605.171.602.422,1.179.611,1.776.429,1.349.807,2.709,1.334,4.034.265.667.618,1.28.905,1.934.207.473.351.965.571,1.433.21.447.488.863.71,1.306,1.081,2.162,2.279,4.244,3.599,6.243.228.344.393.715.628,1.055.061.089.127.173.189.262,1.704,2.44,3.619,4.702,5.652,6.853.213.226.367.487.584.709l439.475,451.104c.08.084.162.166.242.249l.118.121c.152.155.322.288.475.441,1.172,1.178,2.39,2.321,3.673,3.411.118.101.228.214.347.314.111.093.227.174.338.266.319.264.666.488.991.746.042.032.084.061.126.093.698.549,1.365,1.13,2.095,1.652.151.109.318.178.471.284.269.19.521.406.793.591.527.358,1.081.661,1.618,1.001.577.365,1.161.71,1.75,1.056.087.052.175.107.263.159.502.291.981.623,1.49.9.427.232.868.425,1.3.646.508.26,1.023.484,1.536.728.231.11.462.222.695.329.447.206.877.442,1.329.637.183.079.358.172.54.25,1.273.534,2.574.969,3.876,1.413.176.06.347.132.525.191.326.107.64.251.967.352.09.028.177.058.267.085.273.084.549.148.822.228.483.142.979.237,1.466.366.481.127.964.246,1.448.362.693.165,1.371.377,2.07.517.602.121,1.213.18,1.817.283.434.073.859.176,1.293.24.428.063.862.093,1.293.145.508.064,1.007.171,1.518.222,1.789.178,3.585.253,5.384.271.179.002.355.027.534.027.011,0,.022.002.033.002h.033c.011,0,.021-.002.032-.002.185,0,.366-.026.55-.028,1.792-.019,3.582-.093,5.364-.27.513-.051,1.016-.158,1.528-.222.429-.054.862-.083,1.29-.146.432-.063.856-.166,1.287-.239.602-.102,1.21-.161,1.809-.281.785-.157,1.549-.391,2.324-.58.4-.096.797-.193,1.194-.298.493-.13.994-.228,1.482-.371.267-.078.537-.139.803-.22.102-.031.202-.066.305-.097.295-.093.579-.222.873-.319.279-.092.55-.205.828-.302,1.217-.421,2.44-.825,3.633-1.325.19-.08.372-.177.561-.258.45-.194.875-.428,1.319-.633.241-.111.48-.228.721-.342.5-.239,1.002-.456,1.497-.71.436-.222.882-.416,1.313-.65.512-.278.993-.611,1.497-.904.092-.054.181-.111.272-.165.58-.34,1.154-.68,1.722-1.04.544-.344,1.105-.65,1.638-1.014.272-.185.525-.401.794-.592.15-.105.315-.173.463-.279.713-.512,1.364-1.079,2.048-1.615.07-.055.142-.104.212-.159.31-.245.638-.459.943-.71.116-.096.238-.183.355-.28.117-.098.225-.211.342-.31,1.281-1.089,2.496-2.229,3.667-3.405.154-.154.326-.288.478-.444l.118-.121c.081-.083.162-.165.242-.249l439.466-451.104c.218-.225.376-.488.59-.715,2.03-2.147,3.941-4.405,5.642-6.841.064-.091.131-.179.194-.269.237-.342.403-.717.632-1.064,1.318-1.995,2.513-4.073,3.594-6.232.221-.442.5-.857.71-1.303.221-.471.365-.965.574-1.44.287-.652.638-1.265.902-1.93.526-1.323.903-2.68,1.331-4.026.191-.6.443-1.18.615-1.787Z"/>
+  </g>
+  <metadata><?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 10.0-c000 1.000000, 0000/00/00-00:00:00        ">
+   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+      <rdf:Description rdf:about=""
+            xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+            xmlns:xmpGImg="http://ns.adobe.com/xap/1.0/g/img/"
+            xmlns:xmpTPg="http://ns.adobe.com/xap/1.0/t/pg/"
+            xmlns:stDim="http://ns.adobe.com/xap/1.0/sType/Dimensions#"
+            xmlns:xmpG="http://ns.adobe.com/xap/1.0/g/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/">
+         <xmp:CreatorTool>Adobe Illustrator 30.2 (Macintosh)</xmp:CreatorTool>
+         <xmp:CreateDate>2026-02-25T12:42:31+08:00</xmp:CreateDate>
+         <xmp:Thumbnails>
+            <rdf:Alt>
+               <rdf:li rdf:parseType="Resource">
+                  <xmpGImg:width>256</xmpGImg:width>
+                  <xmpGImg:height>216</xmpGImg:height>
+                  <xmpGImg:format>JPEG</xmpGImg:format>
+                  <xmpGImg:image>/9j/4AAQSkZJRgABAgEAAAAAAAD/7QAsUGhvdG9zaG9wIDMuMAA4QklNA+0AAAAAABAAAAAAAAEA&#xA;AQAAAAAAAQAB/+4ADkFkb2JlAGTAAAAAAf/bAIQABgQEBAUEBgUFBgkGBQYJCwgGBggLDAoKCwoK&#xA;DBAMDAwMDAwQDA4PEA8ODBMTFBQTExwbGxscHx8fHx8fHx8fHwEHBwcNDA0YEBAYGhURFRofHx8f&#xA;Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8f/8AAEQgA2AEAAwER&#xA;AAIRAQMRAf/EAaIAAAAHAQEBAQEAAAAAAAAAAAQFAwIGAQAHCAkKCwEAAgIDAQEBAQEAAAAAAAAA&#xA;AQACAwQFBgcICQoLEAACAQMDAgQCBgcDBAIGAnMBAgMRBAAFIRIxQVEGE2EicYEUMpGhBxWxQiPB&#xA;UtHhMxZi8CRygvElQzRTkqKyY3PCNUQnk6OzNhdUZHTD0uIIJoMJChgZhJRFRqS0VtNVKBry4/PE&#xA;1OT0ZXWFlaW1xdXl9WZ2hpamtsbW5vY3R1dnd4eXp7fH1+f3OEhYaHiImKi4yNjo+Ck5SVlpeYmZ&#xA;qbnJ2en5KjpKWmp6ipqqusra6voRAAICAQIDBQUEBQYECAMDbQEAAhEDBCESMUEFURNhIgZxgZEy&#xA;obHwFMHR4SNCFVJicvEzJDRDghaSUyWiY7LCB3PSNeJEgxdUkwgJChgZJjZFGidkdFU38qOzwygp&#xA;0+PzhJSktMTU5PRldYWVpbXF1eX1RlZmdoaWprbG1ub2R1dnd4eXp7fH1+f3OEhYaHiImKi4yNjo&#xA;+DlJWWl5iZmpucnZ6fkqOkpaanqKmqq6ytrq+v/aAAwDAQACEQMRAD8A9U4q7FXYq7FXYqxT8zvz&#xA;G0X8vvKVz5g1T94UIisrNSFe4uHBKRKTWnQlj2UE4q+EvzB/O38w/PF7LJqmqS2+nuT6Wk2jtDao&#xA;vZSin94f8p6nFWB4q7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FWefl9+dv5h+R72KTS&#xA;9UluNPQj1dJu3aa1de6hGP7s/wCUlDir7t/LH8xtF/MHylbeYNL/AHZcmK9s2IZ7e4QAvExFK9QV&#xA;PdSDirK8VdirsVdirsVdirsVdirsVcSFBJNANyT0AxV8Cf8AORv5snz/AOdnisJuXlvRi9tpYU/D&#xA;K1f3tz/z0Kjj/kAd64q8mxV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV2KvWf+cc&#xA;vzZPkDzskV/Nx8t6yUttUDH4Ymr+6uf+eZY8v8gnvTFX32CGAINQdwR0IxV2KuxV2KuxV2KuxV2K&#xA;uxV4F/zlj+bf+GfLA8o6VNx1zXoz9adD8UFgSVc+xnIKL7cu9MVfFGKuxV2KuxV2KuxV2KuxV2Ku&#xA;xV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV9r/84nfm3/ibywfKOqzctc0GMfVXc/FPYAhUPuYCQje3&#xA;HvXFXvuKuxV2KuxV2KuxV2KpN5x82aT5S8sah5i1aThY6dEZXApydukcSV/akchV9zir84PO3m/V&#xA;vOHmnUPMeqvyvNQlMhQElY0G0cSV/ZjQBRiqR4q7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7F&#xA;XYq7FXYq7FXYq7FU88k+b9W8n+adP8x6U/G80+USBCSFkQ7SRPT9mRCVOKv0f8nebNJ82+WNP8xa&#xA;TJzsdRiEqA05I3SSJ6ftRuCre4xVOcVdirsVdirsVdir4t/5y0/Nv/EPmQeTNKm5aNoUh+vuh+Ge&#xA;/A4sPcQAlP8AW5e2Kvn3FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7F&#xA;XYq+gv8AnEv82/8AD3mQ+TNVm46Nrsg+oO5+GC/I4qPYTgBP9bj74q+0sVdirsVdirsVeV/85E/m&#xA;yv5f+SJBYyhfMerhrbSVFOUe3725p/xUrfD/AJZXtXFXwC7u7s7sWdiSzE1JJ6knFVuKuxV2KuxV&#xA;2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxV2KuxVcjujq6MVdSCrA0II6EHFX39/zj&#xA;v+bKfmB5JjF7KD5j0gJbaspI5SbfurmnhKF3/wAoN2pir1TFXYq7FUNqepWOl6dc6lfzLb2NnE89&#xA;zO5oqRxqWZj8gMVfnT+b/wCZN9+YXne912bkliD6GlWrH+5tYyeApU/E323/AMontirCsVdirsVd&#xA;irsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirNfyg/Mm+/L3zvZa7Dye&#xA;xJ9DVbVT/fWshHMUqPiX7af5QHbFX6LaZqVjqmnW2pWEy3FjeRJPbToaq8cihlYfMHFUTirsVfK/&#xA;/OYP5t0Cfl3pE+54XHmCRD22eG2ND8pHH+r74q+U8VdirsVdirsVdirsVdirsVdirsVdirsVdirs&#xA;VdirsVdirsVdirsVdirsVdirsVdirsVdir6s/wCcPvzbqH/LvV59xzuPL8jntu81sKn5yIP9b2xV&#xA;9UYqwz83PzIsPy+8k3uvXHGS8p6Gl2rH++unB9NaVB4rQs9P2QcVfnRqmp3+q6ldanqE7XN9eyvP&#xA;czuas8khLMx+ZOKoXFXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq&#xA;7FXYq7FXYqitL1O/0rUrXU9Pna2vrKVJ7adDRkkjIZWHyIxV+i/5R/mRYfmD5Jstet+Md5T0NUtV&#xA;P9zdIB6i0qTxaoZK/skYq+PP+cmfzOuPOf5g3NhbyEaH5fkksbGMH4XlRuM8/hV3Wi/5IHviryHF&#xA;XYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq7FXYq9e/&#xA;5xm/M648mfmDbWFxITofmCSOxvoyfhSV24wT+FUdqN/kk+2KvJJhKJnE3L1uR9TlXlyrvWveuKrM&#xA;VdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdiq+E&#xA;SmZBDy9bkPT415cq7Up3rir1/wD5yW/KW/8AJnna61e1gY+Wtdme5s7hQSkU8hLy27n9khqsnivT&#xA;oaKvHcVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirsVdirs&#xA;Vdir2L/nGn8pb/zn52tdXuoGHlrQpkuby4YEJLPGQ8Vuh/aJajP4L16iqr7d80+V9D806Dd6Frds&#xA;t3pt6nCaJtiCN1dGG6sp3Vh0OKvgb86PyX138tdd9Gbld6BdsTpeqAbOOvpS02WVR1HfqO4CrznF&#xA;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&#xA;XYq7FXYq7FXYq7FXYq7FX//Z</xmpGImg:image>
+               </rdf:li>
+            </rdf:Alt>
+         </xmp:Thumbnails>
+         <xmpTPg:MaxPageSize rdf:parseType="Resource">
+            <stDim:w>1000.000000</stDim:w>
+            <stDim:h>1000.000000</stDim:h>
+            <stDim:unit>Pixels</stDim:unit>
+         </xmpTPg:MaxPageSize>
+         <xmpTPg:NPages>1</xmpTPg:NPages>
+         <xmpTPg:HasVisibleTransparency>False</xmpTPg:HasVisibleTransparency>
+         <xmpTPg:HasVisibleOverprint>False</xmpTPg:HasVisibleOverprint>
+         <xmpTPg:PlateNames>
+            <rdf:Seq>
+               <rdf:li>Cyan</rdf:li>
+               <rdf:li>Magenta</rdf:li>
+               <rdf:li>Yellow</rdf:li>
+               <rdf:li>Black</rdf:li>
+            </rdf:Seq>
+         </xmpTPg:PlateNames>
+         <xmpTPg:SwatchGroups>
+            <rdf:Seq>
+               <rdf:li rdf:parseType="Resource">
+                  <xmpG:groupName>預設色票群組</xmpG:groupName>
+                  <xmpG:groupType>0</xmpG:groupType>
+                  <xmpG:Colorants>
+                     <rdf:Seq>
+                        <rdf:li rdf:parseType="Resource">
+                           <xmpG:swatchName>R=49 G=21 B=104</xmpG:swatchName>
+                           <xmpG:type>PROCESS</xmpG:type>
+                           <xmpG:tint>100.000000</xmpG:tint>
+                           <xmpG:mode>RGB</xmpG:mode>
+                           <xmpG:red>52</xmpG:red>
+                           <xmpG:green>13</xmpG:green>
+                           <xmpG:blue>106</xmpG:blue>
+                        </rdf:li>
+                        <rdf:li rdf:parseType="Resource">
+                           <xmpG:swatchName>R=255 G=255 B=255</xmpG:swatchName>
+                           <xmpG:type>PROCESS</xmpG:type>
+                           <xmpG:tint>100.000000</xmpG:tint>
+                           <xmpG:mode>RGB</xmpG:mode>
+                           <xmpG:red>255</xmpG:red>
+                           <xmpG:green>255</xmpG:green>
+                           <xmpG:blue>255</xmpG:blue>
+                        </rdf:li>
+                        <rdf:li rdf:parseType="Resource">
+                           <xmpG:swatchName>R=233 G=225 B=246</xmpG:swatchName>
+                           <xmpG:type>PROCESS</xmpG:type>
+                           <xmpG:tint>100.000000</xmpG:tint>
+                           <xmpG:mode>RGB</xmpG:mode>
+                           <xmpG:red>236</xmpG:red>
+                           <xmpG:green>225</xmpG:green>
+                           <xmpG:blue>247</xmpG:blue>
+                        </rdf:li>
+                        <rdf:li rdf:parseType="Resource">
+                           <xmpG:swatchName>R=54 G=44 B=176</xmpG:swatchName>
+                           <xmpG:type>PROCESS</xmpG:type>
+                           <xmpG:tint>100.000000</xmpG:tint>
+                           <xmpG:mode>RGB</xmpG:mode>
+                           <xmpG:red>54</xmpG:red>
+                           <xmpG:green>39</xmpG:green>
+                           <xmpG:blue>180</xmpG:blue>
+                        </rdf:li>
+                        <rdf:li rdf:parseType="Resource">
+                           <xmpG:swatchName>R=241 G=245 B=249</xmpG:swatchName>
+                           <xmpG:type>PROCESS</xmpG:type>
+                           <xmpG:tint>100.000000</xmpG:tint>
+                           <xmpG:mode>RGB</xmpG:mode>
+                           <xmpG:red>239</xmpG:red>
+                           <xmpG:green>245</xmpG:green>
+                           <xmpG:blue>249</xmpG:blue>
+                        </rdf:li>
+                     </rdf:Seq>
+                  </xmpG:Colorants>
+               </rdf:li>
+            </rdf:Seq>
+         </xmpTPg:SwatchGroups>
+         <dc:format>image/svg+xml</dc:format>
+      </rdf:Description>
+   </rdf:RDF>
+</x:xmpmeta>
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                           
+<?xpacket end="w"?>
+  </metadata>
+</svg>

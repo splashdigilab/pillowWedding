@@ -1,0 +1,233 @@
+/* 
+  Component: Sticky Note
+  統一的便利貼樣式系統
+  
+  使用 % 與 cqw（container query）確保各頁面比例一致：
+  - 容器尺寸可不同（editor 600px、home 400px、display 600px）
+  - 內部的 padding、字體、貼紙大小皆為容器的比例
+*/
+
+/* Mixins：供 editor 等頁面共用比例 */
+
+/** 文字區塊寬度：max-content + 換行只與 scale 有關（視覺寬 80cqw），editor 與 display 共用 */
+@mixin sticky-note-text-block-width {
+  width: max-content;
+  max-width: calc(80cqw / var(--text-scale, 1));
+}
+
+/** 統一文字輸入框之邊界範圍與計算邏輯，確保 editor 的換行點跟 canvas 一致 */
+@mixin sticky-note-text-box {
+  display: inline-block;
+  min-width: 1em;
+  min-height: 1.5em;
+  padding: 0.1em 0.2em;
+  box-sizing: border-box;
+}
+
+@mixin sticky-note-font-size {
+  font-family: 'Nanum Pen Script', 'JasonHandwriting2', sans-serif;
+  font-size: calc(var(--font-size-pct, 4) * 1cqw);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+@mixin sticky-note-sticker-size {
+  font-size: calc(var(--font-size-pct, 4) * 2 * 1cqw);
+  width: calc(var(--font-size-pct, 4) * 2 * 1cqw);
+  height: calc(var(--font-size-pct, 4) * 2 * 1cqw);
+}
+
+@mixin sticky-note-sticker-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin sticky-note-sticker-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 便利貼圖層順序（editor 與 display 一致）：文字 1 → 手繪 2 → 貼紙 3 */
+@mixin sticky-note-layer-text {
+  z-index: 1;
+}
+
+@mixin sticky-note-layer-drawing {
+  z-index: 2;
+}
+
+@mixin sticky-note-layer-sticker {
+  z-index: 3;
+}
+
+/* 
+  擬真柔和陰影：直接在縮放層套 filter: drop-shadow()。
+  drop-shadow 會依照 mask-image 裁切後的實際形狀計算陰影輪廓，
+  blur-radius 設大讓陰影擴散柔和，模擬真實便利貼的漫射打光。
+*/
+@mixin sticky-note-shadow {
+  filter: drop-shadow(2px 4px 3px rgba(0, 0, 0, 0.05))
+          drop-shadow(1px 2px 1.5px rgba(0, 0, 0, 0.2));
+}
+
+/* 
+  擬真紙張光影疊加層（模擬背膠與紙張彎曲）：
+  真實的便利貼上方 15% 處有一條背膠的物理分界，
+  下方因為沒有黏性而稍微翹起迎光，底部邊緣再轉暗。
+*/
+@mixin sticky-note-lighting-overlay {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  /* 由上到下的物理打光：極度柔化的薄霧光效，模擬真實無亮面紙張 */
+  background: linear-gradient(to bottom,
+      rgba(0, 0, 0, 0.02) 0%,
+      rgba(0, 0, 0, 0.03) 15%,
+      rgba(255, 255, 255, 0.06) 25%,
+      rgba(255, 255, 255, 0) 60%,
+      rgba(0, 0, 0, 0.04) 100%);
+  mix-blend-mode: normal;
+}
+
+/* 紙張材質疊加層：使用 mix-blend-mode 疊上真實紙紋理 */
+@mixin sticky-note-paper-texture-overlay {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url('/paperTexture.webp');
+  background-size: cover;
+  background-repeat: repeat;
+  opacity: 0.45;
+  mix-blend-mode: multiply;
+}
+
+/* 
+  共通虛擬畫布縮放層 (Virtual Scaler)
+  用於鎖定 600px 實體渲染大小，解開瀏覽器字體限制
+*/
+@mixin sticky-note-virtual-scaler($container-name: sticky-note) {
+  width: 600px;
+  height: 600px;
+  container-type: inline-size;
+  container-name: $container-name;
+}
+
+.c-sticky-note {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+
+  &__scaler {
+    @include sticky-note-virtual-scaler(sticky-note);
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+
+    // WebKit 邊緣毛邊/虛線修復
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+
+    @include sticky-note-shadow;
+  }
+
+  /* 內層：形狀由外層 mask-image 控制、背景圖片 */
+  &__inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 8%;
+    overflow: hidden;
+
+    // WebKit Mask 邊緣毛邊修復
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+
+    &::before {
+      @include sticky-note-lighting-overlay;
+    }
+
+    &::after {
+      @include sticky-note-paper-texture-overlay;
+    }
+  }
+
+  /* 內容文字外包裝 - 支援位置、縮放、旋轉 */
+  &__content-wrap {
+    position: absolute;
+    @include sticky-note-layer-text;
+    transform-origin: center center;
+  }
+
+  /* 內容文字區域 - 換行寬度只與 scale 有關，與 editor 共用 mixin */
+  &__content {
+    @include sticky-note-text-block-width;
+    @include sticky-note-text-box;
+    word-break: break-word;
+    @include sticky-note-font-size;
+    padding: 0;
+  }
+
+  /* 貼紙元素 - 大小為文字的 2 倍（與 editor 基準一致：2em） */
+  &__sticker {
+    position: absolute;
+    @include sticky-note-sticker-size;
+    @include sticky-note-layer-sticker;
+    pointer-events: none;
+    user-select: none;
+    line-height: 1;
+    @include sticky-note-sticker-layout;
+
+    &-img {
+      @include sticky-note-sticker-img;
+    }
+  }
+
+  /* 手繪圖層 */
+  &__drawing {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    @include sticky-note-layer-drawing;
+  }
+}
+
+/*
+  響應式：只需調整容器尺寸，不需調整內部比例
+  內部使用 % / cqw 會自動跟著縮放
+*/
+@media (max-width: 768px) {
+  .c-sticky-note {
+    max-width: 100%;
+  }
+}
+
+/*
+  便利貼容器變體
+  用於不同頁面的尺寸設定
+*/
+/* Home 牆面 - 400px 基準，比例與 editor/display 一致（內部用 %） */
+.c-sticky-note-container--wall {
+  max-width: 400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Display 大螢幕 - 600px 基準 */
+.c-sticky-note-container--display {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+}

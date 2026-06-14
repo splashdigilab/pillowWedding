@@ -1,0 +1,301 @@
+/*
+  Index Page Layout (Dynamic Canvas with Fermat Spiral)
+*/
+@use '../base/variables' as var;
+@use '../components/button' as btn;
+
+.p-index {
+    position: relative;
+    /* dvh：隨瀏覽器工具列動態縮放，避免 iOS Chrome/Safari 底部按鈕被遮 */
+    height: 100dvh;
+    overflow: hidden;
+    background-color: #f5f5f5;
+    /* 禁用快速雙擊放大 (double-tap to zoom)，消除 300ms 點擊延遲 */
+    touch-action: manipulation;
+}
+
+/* 活動介紹滿版 overlay：不超過螢幕高度，窄螢幕時卡片內容可捲動；overflow: visible 讓卡邊貼紙可超出 */
+.p-index__intro-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    max-height: 100dvh;
+    background-color: #f5f5f5;
+    background-image: url('/paperBg.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 1rem;
+    overflow: visible;
+    box-sizing: border-box;
+}
+
+.p-index__intro-card {
+    position: relative;
+    z-index: 10;
+    max-width: 400px;
+    width: 100%;
+    max-height: calc(100dvh - 2rem);
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2rem 1rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    overflow: visible;
+    box-sizing: border-box;
+}
+
+.p-index__card-sticker {
+    position: absolute;
+    width: 90px;
+    height: auto;
+    pointer-events: none;
+    filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.18));
+    z-index: 20;
+}
+
+.p-index__card-sticker--tl {
+    top: -35px;
+    left: -25px;
+    transform: rotate(-15deg) scaleX(0.9);
+}
+
+.p-index__card-sticker--br {
+    bottom: -35px;
+    right: -25px;
+    transform: rotate(15deg) scale(0.7);
+}
+
+.p-index__intro-logo {
+    display: block;
+    width: 70%;
+    height: auto;
+    margin: 0 auto 1rem;
+    object-fit: contain;
+    filter: drop-shadow(1px 1px 0px rgba(0, 0, 0, 0.15));
+    flex-shrink: 0;
+}
+
+.p-index__intro-title {
+    font-size: 1.75rem;
+    font-weight: bold;
+    color: var(--color-text, #333);
+    margin-bottom: 1rem;
+}
+
+/* 說明區塊：寬度或高度較小時可捲動，不撐破 overlay */
+.p-index__intro-desc.p-index__intro-rules,
+.p-index__intro-rules {
+    font-size: 0.95rem;
+    color: var(--color-text-light, #555);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    text-align: left;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+
+    ol {
+        padding-left: 1.25rem;
+        margin-bottom: 1rem;
+
+        li {
+            margin-bottom: 0.75rem;
+        }
+    }
+}
+
+.p-index__intro-terms {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: var(--color-text, #333);
+    user-select: none;
+
+    input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        background: white;
+
+        &:checked {
+            background-color: var.$will-blue;
+            border-color: var.$will-blue;
+
+            &::after {
+                content: '';
+                width: 5px;
+                height: 10px;
+                border: solid white;
+                border-width: 0 2px 2px 0;
+                transform: rotate(45deg);
+                margin-bottom: 2px;
+            }
+        }
+    }
+}
+
+.p-index__intro-btn {
+    @include btn.btn-action;
+    width: 80%;
+    background: var.$will-blue;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-size: 1.1rem;
+    margin: 0 auto;
+    flex-shrink: 0;
+
+    &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+}
+
+.p-index__intro-btn-inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.p-index__intro-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: p-index-spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes p-index-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.p-index__canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* 由 usePanZoom 控制 transform */
+
+    &::before {
+        content: '';
+        position: absolute;
+        // iOS Safari 在高 DPR 裝置上對超大圖層很敏感，避免巨大貼圖造成 GPU crash
+        // 320vw × 320vh 可保留拖曳視覺連續性，同時顯著降低記憶體尖峰
+        width: 1000vw;
+        height: 1000vh;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        background-image: url('/paperBg.webp');
+        background-repeat: repeat;
+        background-size: 2500px;
+        z-index: -1;
+    }
+}
+
+.p-index__note-wrap {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 150px;
+    height: 150px;
+    margin-left: -75px;
+    margin-top: -75px;
+    opacity: 0;
+    transform: translate(0px, 0px) scale(0);
+
+    // === 效能優化 ===
+    // 首頁同時顯示數十張便利貼，使用輕量單層陰影（縮小模糊半徑），兼顧視覺深度與 GPU 效能。
+    // 編輯器 / 預覽頁保留完整雙層陰影（由 sticky-note-shadow mixin 提供）。
+    .c-sticky-note__scaler {
+        filter: drop-shadow(3px 4px 6px rgba(0, 0, 0, 0.22));
+    }
+
+    // 移除每張便利貼內的光影疊加偽元素（首頁效能優化）
+    .c-sticky-note__inner::before {
+        display: none;
+    }
+}
+
+.p-index__controls {
+    position: absolute;
+    /*
+     * 多層防護確保 iOS Chrome/Safari 不被遮:
+     * 1. dvh 已讓容器跟著可視區縮放
+     * 2. env(safe-area-inset-bottom) 處理 home indicator / notch 留白
+     * 3. 底部再留 1rem 視覺間距
+     */
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    left: 1rem;
+    right: 1rem;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1rem;
+}
+
+.p-index__controls-top {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.p-index__fab {
+    width: 100%;
+}
+
+.c-btn--icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+.c-btn--fab {
+    @include btn.btn-action;
+    background: var.$color-grey;
+    color: white;
+}
+
+/* 活動介紹 overlay 進出場 */
+.intro-fade-enter-active,
+.intro-fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.intro-fade-enter-from,
+.intro-fade-leave-to {
+    opacity: 0;
+}

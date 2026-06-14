@@ -1,0 +1,131 @@
+// ==================== RWD 斷點 Mixin ====================
+// 使用方法：
+// @include respond-to('mobile') { ... }
+// @include respond-to('tablet') { ... }
+// @include respond-to('desktop') { ... }
+
+@use "sass:map";
+
+// 斷點定義
+$breakpoints: (
+  'mobile-sm': 375px,   // 小型手機
+  'mobile': 480px,      // 一般手機
+  'mobile-lg': 640px,   // 大型手機
+  'tablet': 768px,      // 平板
+  'tablet-lg': 1024px,  // 大型平板
+  'desktop': 1280px,    // 桌面
+  'desktop-lg': 1440px, // 大型桌面
+  'desktop-xl': 1920px  // 超大桌面
+) !default;
+
+// 基本斷點 mixin - max-width (由大到小)
+// 適用於桌面優先的設計
+@mixin respond-to($breakpoint) {
+  @if map.has-key($breakpoints, $breakpoint) {
+    $value: map.get($breakpoints, $breakpoint);
+    @media (max-width: $value) {
+      @content;
+    }
+  } @else {
+    @warn "找不到斷點: #{$breakpoint}。可用的斷點有: #{map.keys($breakpoints)}";
+  }
+}
+
+// min-width 斷點 mixin (由小到大)
+// 適用於移動優先的設計
+@mixin respond-from($breakpoint) {
+  @if map.has-key($breakpoints, $breakpoint) {
+    $value: map.get($breakpoints, $breakpoint);
+    $min-value: $value + 1;
+    @media (min-width: $min-value) {
+      @content;
+    }
+  } @else {
+    @warn "找不到斷點: #{$breakpoint}。可用的斷點有: #{map.keys($breakpoints)}";
+  }
+}
+
+// 範圍斷點 mixin (介於兩個斷點之間)
+@mixin respond-between($breakpoint-min, $breakpoint-max) {
+  @if map.has-key($breakpoints, $breakpoint-min) and map.has-key($breakpoints, $breakpoint-max) {
+    $min: map.get($breakpoints, $breakpoint-min);
+    $max: map.get($breakpoints, $breakpoint-max);
+    $min-value: $min + 1;
+    @media (min-width: $min-value) and (max-width: $max) {
+      @content;
+    }
+  } @else {
+    @warn "找不到斷點。可用的斷點有: #{map.keys($breakpoints)}";
+  }
+}
+
+// 自定義斷點 mixin
+@mixin custom-breakpoint($min: null, $max: null) {
+  @if $min and $max {
+    @media (min-width: $min) and (max-width: $max) {
+      @content;
+    }
+  } @else if $min {
+    @media (min-width: $min) {
+      @content;
+    }
+  } @else if $max {
+    @media (max-width: $max) {
+      @content;
+    }
+  }
+}
+
+// 螢幕方向
+@mixin landscape {
+  @media (orientation: landscape) {
+    @content;
+  }
+}
+
+@mixin portrait {
+  @media (orientation: portrait) {
+    @content;
+  }
+}
+
+// 高解析度螢幕 (Retina)
+@mixin retina {
+  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    @content;
+  }
+}
+
+// 常用組合快捷方式
+@mixin mobile-only {
+  @include respond-to('tablet') {
+    @content;
+  }
+}
+
+@mixin tablet-only {
+  @include respond-between('tablet', 'desktop') {
+    @content;
+  }
+}
+
+@mixin desktop-only {
+  @include respond-from('desktop') {
+    @content;
+  }
+}
+
+// 觸控裝置
+@mixin touch-device {
+  @media (hover: none) and (pointer: coarse) {
+    @content;
+  }
+}
+
+// 非觸控裝置（滑鼠）
+@mixin mouse-device {
+  @media (hover: hover) and (pointer: fine) {
+    @content;
+  }
+}
+
