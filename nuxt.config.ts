@@ -61,7 +61,6 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    openaiApiKey: process.env.OPENAI_API_KEY || '',
     public: {
       gtmId: gtmId,
       firebase: {
