@@ -53,12 +53,17 @@
 }
 
 /* 便利貼圖層順序（editor 與 display 一致）：文字 1 → 手繪 2 → 貼紙 3 */
-@mixin sticky-note-layer-text {
-  z-index: 1;
+/*
+  疊放順序：手繪永遠在最底層，文字與貼紙永遠蓋在它上面。
+  文字／貼紙的實際 z 可能被 objectLayerOrder（編輯器裡的 bringToFront 計數）覆寫，
+  但那個計數從 1 開始，所以手繪放 0 就保證壓在所有物件之下。
+*/
+@mixin sticky-note-layer-drawing {
+  z-index: 0;
 }
 
-@mixin sticky-note-layer-drawing {
-  z-index: 2;
+@mixin sticky-note-layer-text {
+  z-index: 1;
 }
 
 @mixin sticky-note-layer-sticker {

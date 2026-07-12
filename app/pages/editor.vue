@@ -111,7 +111,7 @@
     />
 
     <!-- Canvas Area -->
-    <div class="p-editor__canvas-section">
+    <div ref="canvasSectionRef" class="p-editor__canvas-section">
       <div
         ref="canvasRef"
         class="p-editor__canvas-container"
@@ -181,14 +181,16 @@
           </div>
 
           <!-- 手繪層 (Fabric.js) -->
+          <!--
+            手繪層永遠在最底層（z-index 由 scss 固定為 0），文字與貼紙一律蓋在它上面。
+            繪圖模式下不需要把它拉到最上層也能畫：此時文字/貼紙都是 pointer-events: none，
+            觸控會直接穿透到下面的 canvas。
+          -->
           <div
             ref="drawingLayerRef"
             class="p-editor__drawing-layer"
             :class="{ 'is-active': drawMode }"
-            :style="{ 
-              pointerEvents: drawMode ? 'auto' : 'none',
-              zIndex: getObjectZIndex('drawing-layer')
-            }"
+            :style="{ pointerEvents: drawMode ? 'auto' : 'none' }"
           >
             <!-- Fabric.js canvas：始終留在 DOM（init 需要），縮小後視覺空白 -->
             <canvas ref="drawingCanvasRef" class="p-editor__drawing-canvas" />
@@ -560,6 +562,7 @@ import { useStickyNoteStyle, type StickyNoteStyleProps } from '~/composables/use
 import { useTextBlockInteraction } from '~/composables/useTextBlockInteraction'
 import { useStickerInteraction } from '~/composables/useStickerInteraction'
 import { useCanvasPinch } from '~/composables/useCanvasPinch'
+import { useSoftKeyboard } from '~/composables/useSoftKeyboard'
 import { useStorage } from '~/composables/useStorage'
 import { useFirestore } from '~/composables/useFirestore'
 import { useFabricBrush } from '~/composables/useFabricBrush'
@@ -852,7 +855,6 @@ watch(activeTab, (tab) => {
     // 恢復畫布尺寸（從 1×1 最小化還原為 600×600，重新分配 GPU backing store）
     fabricBrush.restoreCanvas()
     fabricBrush.setDrawingMode(true)
-    bringToFront('drawing-layer')
   } else {
     if (drawMode.value) {
       // 離開繪圖模式：立即存檔（saveImmediately=true），不用防抖，避免資料遺失
@@ -2157,6 +2159,53 @@ const scalerStyle = ref({ transform: 'scale(1)' })
 const VIRTUAL_SIZE = 600
 let resizeObserver: ResizeObserver | null = null
 
+/*
+  鍵盤過場（LINE 這類 in-app browser 會直接把 WebView 壓矮，見 useSoftKeyboard）。
+
+  舊行為：WebView 被壓矮 → 100dvh 變小 → canvas-container（1:1 + max-height:100%）跟著變窄
+  → ResizeObserver 在鍵盤動畫期間狂噴 → 每次都寫 scalerStyle → 整個編輯器重繪十幾次，
+  畫面上就是「啪」一下被壓扁。
+
+  新行為：高度改由 --app-h 驅動並掛上 transition；scale 只在鍵盤高度改變的當下算一次終點值
+  （鍵盤動畫期間 ResizeObserver 直接停手），中間的補間交給 CSS 的 transform transition。
+  一次鍵盤開合從十幾次 Vue 重繪降到 2～3 次。
+*/
+const canvasSectionRef = ref<HTMLElement | null>(null)
+
+const setCanvasScale = (size: number) => {
+  const transform = `scale(${Math.max(0, size) / VIRTUAL_SIZE})`
+  if (scalerStyle.value.transform !== transform) {
+    scalerStyle.value = { transform }
+  }
+}
+
+/** canvas-container 是 1:1 且塞滿 section，邊長 = min(可用寬, 可用高) */
+const measureCanvasSection = () => {
+  const el = canvasSectionRef.value
+  if (!el) return null
+  const cs = getComputedStyle(el)
+  return {
+    w: el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+    h: el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+  }
+}
+
+const { keyboardBusy } = useSoftKeyboard({
+  // 此刻版面還沒套用新的 --app-h，量到的是「扣掉 prev 鍵盤高度」的狀態；
+  // 把 prev 加回去得到靜止高度，再扣掉 next 就是過場的終點高度。
+  beforeApply: (next, prev) => {
+    const avail = measureCanvasSection()
+    if (!avail) return
+    setCanvasScale(Math.min(avail.w, avail.h + prev - next))
+  },
+  // 動畫跑完後用實際尺寸校正一次，修掉 beforeApply 的估算誤差
+  onSettle: () => {
+    const avail = measureCanvasSection()
+    if (!avail || avail.w <= 0) return
+    setCanvasScale(Math.min(avail.w, avail.h))
+  }
+})
+
 const checkInitialModals = async () => {
   await nextTick()
   // 檢查草稿（僅顯示 modal，不預先載入內容；等使用者選擇「使用草稿」才載入）
@@ -2241,21 +2290,21 @@ onMounted(async () => {
     tokenRequiredForSubmit.value = data.enabled === true
   })
 
-  // Scale observer（加防抖：即使 interactive-widget=overlays-content 未生效的舊 iOS，
-  // 也能限制鍵盤動畫期間最多每 150ms 觸發一次 Vue re-render，避免記憶體暴衝）
+  // Scale observer：負責一般的尺寸變化（面板換 tab、旋轉）。
+  // 鍵盤動畫期間（keyboardBusy）整個停手 —— 那段時間的 scale 由 useSoftKeyboard 的
+  // beforeApply 一次算好、交給 CSS transition 補間，避免每幀觸發 Vue 重繪把記憶體吃爆。
   if (canvasRef.value) {
     let resizeRafId: number | null = null
     resizeObserver = new ResizeObserver(entries => {
       const entry = entries[0]
       if (!entry || entry.contentRect.width <= 0) return
+      if (keyboardBusy.value) return
       const newWidth = entry.contentRect.width
       if (resizeRafId !== null) cancelAnimationFrame(resizeRafId)
       resizeRafId = requestAnimationFrame(() => {
         resizeRafId = null
-        const scale = newWidth / VIRTUAL_SIZE
-        if (scalerStyle.value.transform !== `scale(${scale})`) {
-          scalerStyle.value = { transform: `scale(${scale})` }
-        }
+        if (keyboardBusy.value) return
+        setCanvasScale(newWidth)
       })
     })
     resizeObserver.observe(canvasRef.value)

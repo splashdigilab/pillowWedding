@@ -92,7 +92,8 @@ import StickyNote from '~/components/StickyNote.vue'
 
 definePageMeta({ layout: false, ssr: false })
 
-const { getHistory } = useFirestore()
+const { listenToHistory } = useFirestore()
+let unsubscribeHistory: (() => void) | null = null
 
 // ====== UI Refs ======
 const containerRef = ref<HTMLElement | null>(null)
@@ -393,6 +394,27 @@ const appendItemsInBatches = async (
   }
 }
 
+const itemKey = (item: QueueHistoryItem) => item.id || item.token || ''
+
+/**
+ * 後續快照：只做增量更新，不整份重建。
+ * 已經在牆上的便利貼保持原本的順序（＝原本的螺旋位置），新的接在最後面，
+ * 這樣既有的貼紙不會因為重新洗牌而整面跳動；長度一變，watcher 會播放飛入動畫。
+ */
+const syncItems = (items: QueueHistoryItem[]) => {
+  const incoming = new Set(items.map(itemKey))
+
+  // 被刪掉的先移除
+  const kept = displayItems.value.filter(item => incoming.has(itemKey(item)))
+  const keptKeys = new Set(kept.map(itemKey))
+
+  // 新出現的接在後面
+  const fresh = items.filter(item => !keptKeys.has(itemKey(item)))
+
+  if (fresh.length === 0 && kept.length === displayItems.value.length) return
+  displayItems.value = [...kept, ...fresh]
+}
+
 onMounted(async () => {
   const waitForIntroImages = async () => {
     await nextTick()
@@ -419,16 +441,24 @@ onMounted(async () => {
     }
   })
 
+  // 即時監聽：第一份快照走批次載入（開場動畫），之後的快照做增量更新，
+  // 有人送出新的便利貼時牆上會自己長出來，不需要重新整理。
+  let firstSnapshotSeen = false
+  const firstSnapshot = new Promise<void>(resolve => {
+    unsubscribeHistory = listenToHistory(HISTORY_FETCH_LIMIT, (items) => {
+      if (!firstSnapshotSeen) {
+        firstSnapshotSeen = true
+        appendItemsInBatches(items).finally(resolve)
+      } else {
+        syncItems(items)
+      }
+    })
+  })
+
   // 等待字體、圖片載入與最小延遲
   try {
-    const historyPromise = getHistory(HISTORY_FETCH_LIMIT)
-      .then(async ({ items }) => {
-        await appendItemsInBatches(items)
-      })
-      .catch(e => console.error('Error fetching history:', e))
-
     await Promise.all([
-      historyPromise,
+      firstSnapshot,
       document.fonts.ready,
       windowLoaded,
       waitForIntroImages(),
@@ -439,11 +469,13 @@ onMounted(async () => {
   } catch (e) {
     console.warn('Loading error', e)
   }
-  
+
   loading.value = false
 })
 
 onUnmounted(() => {
   if (loadingTimer) clearTimeout(loadingTimer)
+  // 一定要退訂，否則離開首頁後 Firestore 監聽會繼續掛著
+  if (unsubscribeHistory) unsubscribeHistory()
 })
 </script>

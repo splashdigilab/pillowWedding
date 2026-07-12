@@ -14,6 +14,16 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+
+  /*
+    連點兩下不要放大網頁（全站、所有元素）。
+    manipulation = auto 但拿掉「double-tap zoom」與其他非標準手勢，
+    平移與雙指縮放都還在。viewport meta 的 user-scalable=no 在 iOS Safari 會被忽略，
+    只有這個 CSS 屬性擋得住。
+    需要更嚴格的元素（繪圖層 touch-action: none、畫布 pan-x pan-y）自己有 class 規則，
+    specificity 比 * 高，會蓋過這裡。
+  */
+  touch-action: manipulation;
 }
 
 html {
