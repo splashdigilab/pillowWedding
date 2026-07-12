@@ -272,25 +272,32 @@ const positionMap = reactive<Record<string, { left: number; top: number; rot: nu
    版面配置：中間 Logo + 大張 display，左右各 8 張、中間下方 2 張
    ══════════════════════════════════════════════ */
 
-/** 左右兩側各自的欄 / 列數（2×4 = 8 張／側） */
+/**
+ * 左右兩側各自的欄 / 列數（2 欄 × 3 列 = 6 張／側）。
+ * 由左到右每一直行的張數即為 3 / 3 / 1 / 1 / 3 / 3（中間兩行只有 display 下方那一張）。
+ */
 const SIDE_COLS = 2
-const SIDE_ROWS = 4
-/** 中間下方張數 */
+const SIDE_ROWS = 3
+/** 中間下方張數（即中間兩行各 1 張） */
 const BOTTOM_COUNT = 2
-/** 版面總格數 = 左 8 + 右 8 + 下 2 */
+/** 版面總格數 = 左 6 + 右 6 + 下 2 = 14 */
 const SLOT_TOTAL = SIDE_COLS * SIDE_ROWS * 2 + BOTTOM_COUNT
-/** display 與周圍便利貼的最小間距（佔 display 邊長比例） */
-const DISPLAY_GAP_RATIO = 0.04
+/**
+ * display 與周圍便利貼的最小間距（佔 display 邊長比例）。
+ * 這個間距同時決定左右兩區的寬度與中下區的寬度（此消彼長）：
+ * 0.1 讓「側邊格寬」與「中下格寬」幾乎相等，便利貼才能一起放到最大。
+ */
+const DISPLAY_GAP_RATIO = 0.1
 
 /** 大張 display 便利貼佔螢幕高 / 寬的比例（取正方形較小邊，另乘 displayScale） */
 const DISPLAY_H_RATIO = 0.52
 const DISPLAY_W_RATIO = 0.30
 /** display 距畫面頂端的比例（讓出上方空間給 Logo） */
-const DISPLAY_TOP_RATIO = 0.26
+const DISPLAY_TOP_RATIO = 0.21
 
 /** 中間最上方 Logo：寬度佔舞台寬的比例、距頂端比例、原圖長寬比（寬度刻意與 display 齊寬）*/
-const LOGO_W_RATIO = 0.3
-const LOGO_TOP_RATIO = 0.04
+const LOGO_W_RATIO = 0.26
+const LOGO_TOP_RATIO = 0.025
 const LOGO_ASPECT = 2045 / 769
 /**
  * 散落區四邊留白：取舞台短邊的比例（最少 24px）。
@@ -299,9 +306,20 @@ const LOGO_ASPECT = 2045 / 769
 const SCATTER_EDGE = 24
 const SCATTER_EDGE_RATIO = 0.05
 /** 便利貼佔格子的比例：刻意小於 1，剩下的空隙就是「錯位」可以用的範圍 */
-const NOTE_FILL = 0.84
-/** 錯位幅度：用掉格子剩餘空隙的比例（<1 保留最小間距，故不會互相重疊） */
-const SCATTER_JITTER = 0.85
+const NOTE_FILL = 0.9
+/**
+ * 錯位幅度：用掉格子剩餘空隙的比例（<1 保留最小間距，故不會互相重疊）。
+ * 刻意壓低，把格內空間讓給下面的弧線位移（ARC_*）——兩者共用同一份空隙。
+ */
+const SCATTER_JITTER = 0.35
+/**
+ * 弧線：左右每一欄（含最外側）的「上下兩張」往 display 靠攏、中間那張往外退，
+ * 讓每欄三張圍成一道弧線把大張框起來。單位為便利貼邊長比例。
+ */
+const ARC_RATIO = 0.15
+const ARC_MID_RATIO = 0.06
+/** 中下兩張往中央靠攏的距離（便利貼邊長比例）：讓出空間給上方弧線的下緣那張 */
+const BOTTOM_INWARD_RATIO = 0.065
 /** 隨機旋轉角度總範圍（度）：實際為 ±一半 */
 const SCATTER_ROT_RANGE = 18
 
@@ -380,15 +398,18 @@ function buildSlots(W: number, H: number): { slots: Slot[]; noteSize: number } {
   const colW = sideW / SIDE_COLS
   const rowH = (H - edge * 2) / SIDE_ROWS
 
-  // 中下區：display 底部到畫面下緣，橫向與 display 同寬
+  // 中下區：display 底部到畫面下緣。
+  // 橫向可用到左右兩區之間的整段（display 寬 + 兩側間距），這樣兩張才不會擠在一起；
+  // 下緣留白取一般留白的 0.55 倍——畫面正下方沒有背景花飾，可以更靠近底部換取更大張。
   const bottomTop = d.top + d.size + gap
-  const bottomH = (H - edge) - bottomTop
-  const bottomColW = d.size / BOTTOM_COUNT
+  const bottomEdge = edge * 0.55
+  const bottomH = (H - bottomEdge) - bottomTop
+  const bottomSpan = d.size + gap * 2
+  const bottomColW = bottomSpan / BOTTOM_COUNT
 
-  // 全部便利貼同尺寸：尺寸由左右格子決定；中下區只要塞得下就沿用（0.9 留給錯位），
-  // 不讓較矮的中下區把整體便利貼一起縮小
+  // 全部便利貼同尺寸：由格子短邊決定，並確保中下區高度塞得下（0.95 留給錯位）
   const base = Math.min(colW, rowH, bottomColW)
-  const noteSize = Math.max(60, Math.min(base * NOTE_FILL * liveNoteScale.value, bottomH * 0.9))
+  const noteSize = Math.max(60, Math.min(base * NOTE_FILL * liveNoteScale.value, bottomH * 0.95))
 
   const jitter = (span: number) => Math.max(0, (span - noteSize) / 2) * SCATTER_JITTER
   const sideJx = jitter(colW)
@@ -398,17 +419,25 @@ function buildSlots(W: number, H: number): { slots: Slot[]; noteSize: number } {
 
   const slots: Slot[] = []
 
-  // 左 8 張（zone seed 0）／右 8 張（zone seed 10）
-  const sides: { start: number; seed: number; tag: string }[] = [
-    { start: edge, seed: 0, tag: 'L' },
-    { start: W - edge - sideW, seed: 10, tag: 'R' }
+  // 左 6 張（zone seed 0）／右 6 張（zone seed 10）
+  // dir = 朝向 display 的方向：左側為 +1（往右），右側為 -1（往左）
+  const sides: { start: number; seed: number; tag: string; dir: number }[] = [
+    { start: edge, seed: 0, tag: 'L', dir: 1 },
+    { start: W - edge - sideW, seed: 10, tag: 'R', dir: -1 }
   ]
   for (const side of sides) {
     for (let r = 0; r < SIDE_ROWS; r++) {
       for (let c = 0; c < SIDE_COLS; c++) {
         const seedCol = side.seed + c
+        // 弧線：每一欄的上下兩張都靠向 display、中間那張往外退，圍成弧形把大張框起來。
+        // 同一列的兩欄位移量相同 → 欄與欄的間距不變，不會互相擠到。
+        const isEdgeRow = r === 0 || r === SIDE_ROWS - 1
+        const arcShift = isEdgeRow
+          ? side.dir * noteSize * ARC_RATIO
+          : -side.dir * noteSize * ARC_MID_RATIO
+
         slots.push({
-          cx: side.start + (c + 0.5) * colW + (cellNoise(r, seedCol, 1) * 2 - 1) * sideJx,
+          cx: side.start + (c + 0.5) * colW + arcShift + (cellNoise(r, seedCol, 1) * 2 - 1) * sideJx,
           cy: edge + (r + 0.5) * rowH + (cellNoise(r, seedCol, 2) * 2 - 1) * sideJy,
           key: `${side.tag}${r}-${c}`
         })
@@ -418,9 +447,12 @@ function buildSlots(W: number, H: number): { slots: Slot[]; noteSize: number } {
 
   // 中間下方 2 張（zone seed 20）
   const bottomCy = bottomTop + bottomH / 2
+  const bottomLeft = (W - bottomSpan) / 2
   for (let i = 0; i < BOTTOM_COUNT; i++) {
+    // 往中央靠攏，把外側空間讓給內側欄下緣那張的弧線位移
+    const inward = (i === 0 ? 1 : -1) * noteSize * BOTTOM_INWARD_RATIO
     slots.push({
-      cx: d.left + (i + 0.5) * bottomColW + (cellNoise(0, 20 + i, 1) * 2 - 1) * bottomJx,
+      cx: bottomLeft + (i + 0.5) * bottomColW + inward + (cellNoise(0, 20 + i, 1) * 2 - 1) * bottomJx,
       cy: bottomCy + (cellNoise(0, 20 + i, 2) * 2 - 1) * bottomJy,
       key: `B-${i}`
     })

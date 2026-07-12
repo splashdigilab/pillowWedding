@@ -105,6 +105,8 @@ const showIntroOverlay = ref(true)
 const loading = ref(true)
 const HISTORY_FETCH_LIMIT = 100
 
+const itemKey = (item: QueueHistoryItem) => item.id || item.token || ''
+
 // ====== Layout Math: Fermat's Spiral with Collision Detection ======
 const ITEM_SIZE = 150 
 const MARGIN = -20 // Increase margin significantly
@@ -257,102 +259,94 @@ const getStoredPosition = (index: number) => {
 const ENTRY_ANIMATION_COUNT = 20 // 入場只對前 N 張播 fly-in，其餘直接出現在定位
 let isFirstRender = true
 let isReflowing = false
+let reflowQueued = false
 
-const playReflowSequence = async () => {
-  if (isReflowing) return
-  isReflowing = true
-
-  await nextTick()
-  const canvasEl = canvasRef.value ? ((canvasRef.value as any).$el || canvasRef.value) : null
-  if (!canvasEl) {
-    isReflowing = false
-    return
+// 每張便利貼的傾斜角固定綁在 id 上。若每次 reflow 都重抽亂數，
+// 新便利貼進場時整面牆會跟著抖一下。
+const rotationById = new Map<string, number>()
+const getRotation = (id: string) => {
+  let rotation = rotationById.get(id)
+  if (rotation === undefined) {
+    rotation = (Math.random() - 0.5) * 15
+    rotationById.set(id, rotation)
   }
-
-  const elements = Array.from(canvasEl.querySelectorAll('.p-index__note-wrap'))
-  if (!elements.length) {
-    isReflowing = false
-    return
-  }
-
-  if (isFirstRender) {
-    const totalCount = elements.length
-    calculatePositions(displayItems.value.length)
-
-    elements.forEach((el, index) => {
-      const pos = getStoredPosition(index)
-      const element = el as HTMLElement
-      element.style.zIndex = `${1000 - index}`
-      const rotation = (Math.random() - 0.5) * 15
-
-      if (index < ENTRY_ANIMATION_COUNT) {
-        // 前 30 張：fly-in 動畫，延遲上限避免 iOS 負擔
-        const animDelay = Math.min(index * 0.05, 1.5)
-        gsap.to(element, {
-          x: pos.x,
-          y: pos.y,
-          scale: 1,
-          opacity: 1,
-          rotation,
-          duration: 1.2 + Math.random() * 0.5,
-          ease: 'power3.out',
-          delay: animDelay
-        })
-      } else {
-        // 第 31 張起：直接出現在應有位置
-        gsap.set(element, {
-          x: pos.x,
-          y: pos.y,
-          scale: 1,
-          opacity: 1,
-          rotation
-        })
-      }
-    })
-    isFirstRender = false
-    isReflowing = false
-    return
-  }
-
-  // Reflow: 直接從目前位置動畫到新位置（不再先收斂到原點）
-  calculatePositions(displayItems.value.length)
-
-  elements.forEach((el, index) => {
-    const pos = getStoredPosition(index)
-    const element = el as HTMLElement
-    element.style.zIndex = `${1000 - index}`
-
-    gsap.to(element, {
-      x: pos.x,
-      y: pos.y,
-      scale: 1,
-      opacity: 1,
-      rotation: (Math.random() - 0.5) * 15,
-      duration: 1.0 + Math.random() * 0.4,
-      ease: 'power3.out',
-      delay: Math.random() * 0.1
-    })
-  })
-  isReflowing = false
+  return rotation
 }
 
-let leavingCount = 0
+const playReflowSequence = async () => {
+  // 正在跑就排隊，不要直接丟掉這次請求：
+  // 便利貼在 CSS 預設是 opacity:0 / scale(0)，只有這裡的 gsap 會讓它現身。
+  // 一旦這次請求被丟掉，那張新便利貼就永遠停在透明狀態（＝看起來沒刷新）。
+  if (isReflowing) {
+    reflowQueued = true
+    return
+  }
+  isReflowing = true
 
+  try {
+    await nextTick()
+    const canvasEl = canvasRef.value ? ((canvasRef.value as any).$el || canvasRef.value) : null
+    if (!canvasEl) return
+
+    // 用 data-id 對應 DOM 節點，而不是依賴 querySelectorAll 的順序：
+    // 正在淡出（leave）的節點還留在 DOM 裡，用索引對位會整排錯開。
+    const nodeById = new Map<string, HTMLElement>()
+    canvasEl.querySelectorAll('.p-index__note-wrap').forEach((el: Element) => {
+      const id = (el as HTMLElement).dataset.id
+      if (id) nodeById.set(id, el as HTMLElement)
+    })
+    if (!nodeById.size) return
+
+    calculatePositions(displayItems.value.length)
+    const firstRender = isFirstRender
+
+    displayItems.value.forEach((item, index) => {
+      const element = nodeById.get(itemKey(item))
+      if (!element) return
+
+      const pos = getStoredPosition(index)
+      element.style.zIndex = `${1000 - index}`
+
+      const target = {
+        x: pos.x,
+        y: pos.y,
+        scale: 1,
+        opacity: 1,
+        rotation: getRotation(itemKey(item))
+      }
+
+      // 首次載入且排在 ENTRY_ANIMATION_COUNT 之後：直接出現在定位，避免行動裝置一次跑上百個動畫
+      if (firstRender && index >= ENTRY_ANIMATION_COUNT) {
+        gsap.set(element, target)
+        return
+      }
+
+      gsap.to(element, {
+        ...target,
+        duration: firstRender ? 1.2 + Math.random() * 0.5 : 1.0 + Math.random() * 0.4,
+        ease: 'power3.out',
+        // 首次載入才做階梯式延遲（上限 1.5s 避免 iOS 負擔）；之後的新便利貼要馬上飛進來
+        delay: firstRender ? Math.min(index * 0.05, 1.5) : Math.random() * 0.1
+      })
+    })
+
+    isFirstRender = false
+  } finally {
+    isReflowing = false
+    if (reflowQueued) {
+      reflowQueued = false
+      void playReflowSequence()
+    }
+  }
+}
+
+// 被擠掉的便利貼原地淡出即可。存活的便利貼由 displayItems 的 watcher 立刻重新排版，
+// 不需要等淡出結束（等的話，新便利貼會延遲 0.6s 才現身）。
 const onLeave = (el: Element, done: () => void) => {
-  leavingCount++
-  
-  // Fade out in place, then remove
   gsap.to(el, {
     opacity: 0,
     duration: 0.6,
-    onComplete: () => {
-      done()
-      leavingCount--
-      // Only recalculate layout for surviving nodes once ALL leaving nodes have finished their animation
-      if (leavingCount === 0) {
-        playReflowSequence()
-      }
-    }
+    onComplete: done
   })
 }
 
@@ -365,16 +359,18 @@ const onStartClick = () => {
   })
 }
 
-// Watch array changes（overlay 還開著時不播動畫，等點「開始」再播）
+// 監看「牆上有哪些便利貼」而不是「有幾張」。
+// 只看長度會漏掉最關鍵的情況：牆上已經有 HISTORY_FETCH_LIMIT 張時，
+// 新便利貼進來會同時把最舊的那張擠出查詢範圍，長度不變（100 → 100），
+// 於是不會重新排版，新便利貼就一直停在 opacity:0，牆看起來像沒更新。
+// （overlay 還開著時不播動畫，等點「查看留言板」再播）
 watch(
-  () => displayItems.value.length,
-  async (newLen, oldLen) => {
+  () => displayItems.value.map(itemKey).join('|'),
+  () => {
     if (showIntroOverlay.value) return
-    if (newLen > oldLen) {
-      setTimeout(() => {
-        playReflowSequence()
-      }, 50)
-    }
+    setTimeout(() => {
+      playReflowSequence()
+    }, 50)
   }
 )
 
@@ -393,8 +389,6 @@ const appendItemsInBatches = async (
     await waitForNextFrame()
   }
 }
-
-const itemKey = (item: QueueHistoryItem) => item.id || item.token || ''
 
 /**
  * 後續快照：只做增量更新，不整份重建。
@@ -443,15 +437,27 @@ onMounted(async () => {
 
   // 即時監聽：第一份快照走批次載入（開場動畫），之後的快照做增量更新，
   // 有人送出新的便利貼時牆上會自己長出來，不需要重新整理。
+  //
+  // 用 promise chain 串起來依序套用：開啟了離線快取後，Firestore 會先吐一份 cache 快照、
+  // 緊接著再吐一份 server 快照。batch append 要跨好幾個 frame，第二份快照會插進來
+  // 覆寫 displayItems，而還沒跑完的 append 迴圈接著把舊資料 push 回去，造成重複／內容錯亂。
   let firstSnapshotSeen = false
+  let applyChain: Promise<void> = Promise.resolve()
   const firstSnapshot = new Promise<void>(resolve => {
     unsubscribeHistory = listenToHistory(HISTORY_FETCH_LIMIT, (items) => {
-      if (!firstSnapshotSeen) {
-        firstSnapshotSeen = true
-        appendItemsInBatches(items).finally(resolve)
-      } else {
-        syncItems(items)
-      }
+      applyChain = applyChain
+        .then(async () => {
+          if (!firstSnapshotSeen) {
+            firstSnapshotSeen = true
+            await appendItemsInBatches(items)
+            resolve()
+          } else {
+            syncItems(items)
+          }
+        })
+        .catch(error => {
+          console.warn('[index] 套用便利貼快照失敗', error)
+        })
     })
   })
 
