@@ -24,15 +24,18 @@
   margin-bottom: 1.5rem;
 }
 
+/*
+  示意舞台：只放便利貼材質，不加底色——材質是去背的，
+  透明處直接露出彈窗的白底，不要再墊一層米色方塊。
+*/
 .tutorial-demo__stage {
   flex: 1;
   min-height: 250px;
   width: 100%;
-  background-color: var.$will-blue;
-  border-radius: 12px;
+  background: url('/bg/bg-1.webp') center / contain no-repeat;
   position: relative;
   overflow: hidden;
-  font-family: 'JasonHandwriting2', sans-serif;
+  font-family: 'ChenYuluoyan', sans-serif;
 }
 
 /* 與 editor 一致的被選取物件：outline + 拖曳條 */
@@ -49,7 +52,8 @@
   padding: 8px 14px;
   min-width: 56px;
   min-height: 32px;
-  color: white;
+  /* 底圖換成淺色材質，字要跟著換成深色才讀得到 */
+  color: var.$text-dark;
   font-size: 14px;
   line-height: 1.4;
   word-break: break-word;
@@ -72,11 +76,15 @@
   top: 0;
   transform: translate(0%, 100%);
   z-index: 10;
-  width: auto;
+  width: 60px;
   height: 60px;
   display: block;
   pointer-events: none;
-  opacity: 0.75;
+
+  /* 原圖是白色線稿，在淺色材質上看不見，改用 mask 以文字色重繪 */
+  background-color: var.$text-dark;
+  -webkit-mask: var(--guesture) center / contain no-repeat;
+  mask: var(--guesture) center / contain no-repeat;
 }
 
 /* ========== 步驟 0：雙指拖移示意動畫 ========== */
@@ -161,7 +169,7 @@
   transition: all 0.3s ease;
 
   &.is-active {
-    background-color: var.$will-blue;
+    background-color: var.$selected-color;
     transform: scale(1.2);
   }
 }

@@ -12,16 +12,11 @@
   scrollbar-width: none;
 }
 
-/// 選取勾選圖示疊加層（材質/造型/顏色等選取時的小勾）
-@mixin editor-picker-check {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: ed.$editor-picker-check-size;
-  height: ed.$editor-picker-check-size;
-  object-fit: contain;
-  filter: drop-shadow(var(--shadow-soft));
+/// 選取狀態：外框（材質/顏色/對齊等）
+/// 只加外框，不改按鈕本身的顏色或透明度——選到的材質要看得出原本長什麼樣。
+@mixin editor-picker-selected {
+  outline: ed.$editor-picker-selected-width solid ed.$editor-picker-selected-color;
+  outline-offset: ed.$editor-picker-selected-offset;
 }
 
 /// 選項網格：換行、間距、陰影（材質、顏色等）

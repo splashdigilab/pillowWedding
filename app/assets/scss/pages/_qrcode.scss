@@ -1,11 +1,12 @@
+@use '../base/variables' as var;
+
 .p-qrcode {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #f9fafb;
-    color: #111;
-    font-family: sans-serif;
+    background-color: var.$paper-bg;
+    color: var.$text-dark;
     padding: 2rem;
 }
 
@@ -30,7 +31,7 @@
 
 .p-qrcode__title {
     font-size: 3rem;
-    font-weight: 800;
+    font-weight: bold;
     margin: 0;
     letter-spacing: -0.02em;
 }
@@ -44,8 +45,8 @@
 
 .p-qrcode__timer {
     display: block;
-    font-weight: 700;
-    color: #111;
+    font-weight: bold;
+    color: var.$text-dark;
     margin-top: 0.5rem;
     font-size: 1.5rem;
 }
@@ -82,7 +83,7 @@
 .p-qrcode__standby {
     font-size: 2.5rem;
     color: #9ca3af;
-    font-weight: 600;
+    font-weight: bold;
     letter-spacing: 0.05em;
 }
 

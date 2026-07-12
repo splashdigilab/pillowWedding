@@ -21,7 +21,12 @@
             <div class="tutorial-demo__stage">
               <!-- 編輯框 + scaleUp 圖：一起動畫 -->
               <div v-if="currentStepData" class="tutorial-demo__object-wrap">
-                <img :src="currentStepData.image" class="tutorial-demo__guesture" alt="" />
+                <!-- 手勢圖用 mask 上色：原圖是白線稿，底圖換成淺色材質後會看不見 -->
+                <span
+                  class="tutorial-demo__guesture"
+                  :style="{ '--guesture': `url(${currentStepData.image})` }"
+                  aria-hidden="true"
+                />
                 <div class="tutorial-demo__object">
                   <span class="tutorial-demo__object-text">文字</span>
                 </div>

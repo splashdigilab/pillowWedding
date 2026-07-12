@@ -1,3 +1,17 @@
+@use '../base/variables' as var;
+
+/*
+  header 沒有底色，logo 直接浮在頁面內容上。
+
+  兩種尺寸：
+  - 預設（position: absolute，首頁 / 展示頁）：header 浮在內容之上不佔排版空間，
+    所以 logo 可以放大到 144px。
+  - --relative（編輯器）：header 排在畫布上方、會佔掉畫布高度，logo 維持 48px。
+*/
+$header-logo-height: 144px;
+$header-logo-height-compact: 48px;
+$header-bar-height: 60px; // 返回 / 說明按鈕所在的那一列
+
 .c-header {
     position: absolute;
     top: 0;
@@ -6,51 +20,66 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 60px;
     padding: 0 16px;
     z-index: 100;
     /* 預設讓 header 本身不阻擋點擊，只有按鈕/logo 擋點擊 */
     pointer-events: none;
 
-    // 原本的底色跟陰影
-    background: white;
-    box-shadow: var(--shadow-default);
-    border-radius: 0 0 1rem 1rem;
+    background: transparent;
 
     // Safe area for notched phones
     padding-top: env(safe-area-inset-top, 0px);
-    height: calc(60px + env(safe-area-inset-top, 0px));
+    height: calc(#{$header-logo-height} + env(safe-area-inset-top, 0px));
 
-    // Transparent modifier
-    &--transparent {
-        background: transparent;
-        box-shadow: none;
-        border-radius: 0;
-    }
-
-    // Relative modifier
+    // Relative modifier（編輯器）：排版內的 header，維持精簡高度與白色底色
     &--relative {
         position: relative;
+        height: calc(#{$header-bar-height} + env(safe-area-inset-top, 0px));
+
+        background: white;
+        box-shadow: var(--shadow-default);
+        border-radius: 0 0 1rem 1rem;
+
+        .c-header__logo img {
+            height: $header-logo-height-compact;
+        }
+    }
+
+    /*
+      返回 / 說明按鈕固定貼齊頂端那一列，不隨 header 變高而往下掉。
+      按鈕 40px、bar 高 60px，上下各留 10px 剛好置中。
+    */
+    &__back-btn,
+    &__trailing {
+        position: absolute;
+        top: calc(env(safe-area-inset-top, 0px) + 10px);
+        pointer-events: auto;
     }
 
     &__back-btn {
-        position: absolute;
         left: 4px;
-        top: 50%;
-        transform: translateY(-50%);
         background: transparent;
         border: none;
-        // padding: 8px;
         cursor: pointer;
-        pointer-events: auto;
         display: flex;
         align-items: center;
         justify-content: center;
 
-        img {
+        .c-header__icon {
             width: 40px;
             height: 40px;
         }
+    }
+
+    /*
+      返回 / 說明圖示：用 mask 把 svg 當形狀、以 currentColor 填色，
+      這樣才能跟著文字色走（<img> 沒辦法從外面改 svg 的顏色）。
+    */
+    &__icon {
+        display: block;
+        background-color: currentColor;
+        -webkit-mask: var(--icon) center / contain no-repeat;
+        mask: var(--icon) center / contain no-repeat;
     }
 
     &__logo {
@@ -62,19 +91,17 @@
         // Adjust for safe area offset difference
         margin-top: calc(env(safe-area-inset-top, 0px) / 2);
 
+        /* 水彩質感不加 drop-shadow */
         img {
-            height: 28px;
+            height: $header-logo-height;
             width: auto;
-            filter: drop-shadow(1px 1px 0px rgba(0, 0, 0, 0.15));
+            max-width: 100%;
+            object-fit: contain;
         }
     }
 
     &__trailing {
-        position: absolute;
         right: 8px;
-        top: 50%;
-        transform: translateY(-50%);
-        pointer-events: auto;
     }
 
     &__help-btn {
@@ -87,14 +114,18 @@
         background: transparent;
         border: none;
         border-radius: 50%;
-        color: var(--color-text-secondary, #666);
         cursor: pointer;
         transition: color 0.2s, background 0.2s;
 
-        img {
+        .c-header__icon {
             width: 32px;
             height: 32px;
-            display: block;
         }
+    }
+
+    /* 圖示顏色 = 全站文字色 */
+    &__back-btn,
+    &__help-btn {
+        color: var.$text-dark;
     }
 }

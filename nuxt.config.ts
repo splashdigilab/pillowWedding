@@ -39,9 +39,8 @@ export default defineNuxtConfig({
         { name: 'description', content: 'Interactive digital sticky notes for K-Pop record store' }
       ],
       link: [
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap' }
+        // 全站只用自架的 ChenYuluoyan（見 assets/scss/base/_global.scss），不再拉 Google Fonts
+        { rel: 'preload', href: '/ChenYuluoyan-2.0-Thin.woff', as: 'font', type: 'font/woff', crossorigin: '' }
       ],
       ...(gtmId ? {
         script: [

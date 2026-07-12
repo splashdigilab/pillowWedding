@@ -46,6 +46,8 @@ export function useStickyNoteStyle(styleRef: Ref<StickyNoteStyleProps>) {
     })
 
     // 內層容器：負責形狀裁切與背景圖片（mask 會切掉此層所有內容，所以不可放 drop-shadow）
+    // 背景圖為去背 webp，本身已帶輪廓；把它疊進遮罩做交集，
+    // 否則紙紋與打光層會鋪滿整個造型範圍，在背景圖輪廓外露出一圈方形邊界。
     const innerStyles = computed(() => {
         const maskUrl = shapeMaskUrl.value
         const bgUrl = styleRef.value.backgroundImage || ''
@@ -54,16 +56,20 @@ export function useStickyNoteStyle(styleRef: Ref<StickyNoteStyleProps>) {
             backgroundSize: 'cover',
             backgroundPosition: 'center',
         } : {}
+        const maskImage = bgUrl ? `url(${bgUrl}), url(${maskUrl})` : `url(${maskUrl})`
+        const maskSize = bgUrl ? 'cover, 100% 100%' : '100% 100%'
         return {
             ...bgStyles,
-            maskImage: `url(${maskUrl})`,
-            maskSize: '100% 100%',
+            maskImage,
+            maskSize,
             maskRepeat: 'no-repeat',
             maskPosition: 'center',
-            WebkitMaskImage: `url(${maskUrl})`,
-            WebkitMaskSize: '100% 100%',
+            maskComposite: 'intersect',
+            WebkitMaskImage: maskImage,
+            WebkitMaskSize: maskSize,
             WebkitMaskRepeat: 'no-repeat',
-            WebkitMaskPosition: 'center'
+            WebkitMaskPosition: 'center',
+            WebkitMaskComposite: 'source-in'
         }
     })
 

@@ -3,35 +3,45 @@
       <!-- Header -->
       <AppHeader show-back show-help relative @back="goBack" @help="showTutorialModal = true" />
 
-      <!-- 活動介紹滿版 overlay：載入時顯示，loading 完後按「開始」關閉 -->
+      <!-- 開場說明滿版 overlay：載入時顯示，按「開始製作」關閉 -->
       <Transition name="intro-fade">
-        <div v-if="showIntroOverlay" class="p-index__intro-overlay p-editor__intro-overlay">
-          <div class="p-index__intro-card">
-            <img src="/svg/stickers/sticker-35.webp" class="p-index__card-sticker p-index__card-sticker--tl" alt="" />
-            <img src="/svg/stickers/sticker-41.webp" class="p-index__card-sticker p-index__card-sticker--br" alt="" />
-            <img src="/postBoardLogoColumn.svg" alt="WillMusic Logo" class="p-index__intro-logo" />
-            <div class="p-index__intro-desc p-index__intro-rules">
-              <ol>
-                <li>於南西旗艦店消費達 599 元，即可獲得一張數位應援便利貼。</li>
-                <li>取得便利貼後，須於 30 分鐘內完成個人專屬內容製作並送出。（禁止任何敏感詞彙或圖像；如有違反，品牌有權不另行通知逕行撤下內容。若多次惡意違規，將依情節嚴重程度採取相應處置。微樂客對違規內容保有最終解釋之權利）</li>
-                <li>便利貼內容經審核通過後，將於 LED 牆輪播展示，並輪流放大顯示 15 秒。</li>
-              </ol>
-              <label class="p-index__intro-terms">
-                <input type="checkbox" v-model="termsAccepted" />
-                <span>我已閱讀並同意上述活動規範</span>
-              </label>
-            </div>
+        <div v-if="showIntroOverlay" class="p-editor-guide">
+          <img src="/system/top.webp" alt="" class="p-editor-guide__deco p-editor-guide__deco--top" />
+          <img src="/system/bottom.webp" alt="" class="p-editor-guide__deco p-editor-guide__deco--bottom" />
+
+          <div class="p-editor-guide__inner">
+            <h1 class="p-editor-guide__title">
+              <span>製作你的專屬</span>
+              <span>婚禮祝福便利貼</span>
+            </h1>
+
+            <ol class="p-editor-guide__steps">
+              <li
+                v-for="(step, i) in EDITOR_GUIDE_STEPS"
+                :key="step.title"
+                class="p-editor-guide__step"
+              >
+                <span class="p-editor-guide__step-no">{{ i + 1 }}</span>
+                <img :src="step.icon" alt="" class="p-editor-guide__step-icon" />
+                <h2 class="p-editor-guide__step-title">{{ step.title }}</h2>
+                <p class="p-editor-guide__step-desc">{{ step.desc }}</p>
+              </li>
+            </ol>
+
+
             <button
               type="button"
-              class="p-index__intro-btn c-btn c-btn--primary"
+              class="p-editor-guide__btn"
               :disabled="loading"
               @click="onStartClick"
             >
-              <span v-if="loading" class="p-index__intro-btn-inner">
+              <span v-if="loading" class="p-editor-guide__btn-inner">
                 <span class="p-index__intro-spinner" aria-hidden="true" />
                 載入中...
               </span>
-              <span v-else>開始</span>
+              <span v-else class="p-editor-guide__btn-inner">
+                開始製作
+              </span>
             </button>
           </div>
         </div>
@@ -39,15 +49,6 @@
 
     <!-- Tutorial Modal -->
     <EditorTutorialModal v-model="showTutorialModal" />
-
-    <AppModal
-      v-model="showTermsModal"
-      title="提示"
-      message="請先閱讀並同意活動規範"
-      confirm-text="確定"
-      cancel-text=""
-      @confirm="showTermsModal = false"
-    />
 
     <!-- Draft Modal -->
     <AppModal
@@ -299,7 +300,7 @@
           @click="handleClearAll"
           aria-label="清除全部"
         >
-          <img src="/undo.svg" alt="清除全部" class="p-editor__clear-btn-icon" />
+          <span class="p-editor__btn-symbol" aria-hidden="true">↺</span>
         </button>
       </div>
     </transition>
@@ -336,23 +337,6 @@
                 @click="backgroundImage = bg.url"
               >
                 <img :src="bg.url" :alt="bg.id" loading="lazy" class="p-editor__background-img" />
-                <img v-if="backgroundImage === bg.url" src="/check.svg" alt="" class="p-editor__background-check" />
-              </button>
-            </div>
-          </div>
-          <div class="p-editor__control-section">
-            <h3 class="p-editor__control-title">選擇便利貼造型</h3>
-            <div class="p-editor__shape-grid">
-              <button
-                v-for="shapeItem in shapes"
-                :key="shapeItem.id"
-                class="p-editor__shape-btn"
-                :class="{ 'is-active': shape === shapeItem.id }"
-                :style="{ '--shape-svg': `url(${shapeItem.svg})` }"
-                @click="shape = shapeItem.id"
-              >
-                <span class="p-editor__shape-icon" :aria-label="shapeItem.id" />
-                <img v-if="shape === shapeItem.id" src="/check.svg" alt="" class="p-editor__shape-check" />
               </button>
             </div>
           </div>
@@ -363,21 +347,6 @@
       <transition name="p-editor-tab">
         <div v-if="activeTab === 'text'" class="p-editor__tab-content">
           <template v-if="selectedBlock">
-          <div class="p-editor__control-section">
-            <h3 class="p-editor__control-title">選擇文字顏色</h3>
-            <div class="p-editor__color-grid">
-              <button
-                v-for="color in TEXT_COLORS"
-                :key="color.value"
-                class="p-editor__color-btn"
-                :class="{ 'is-active': selectedBlock.color === color.value }"
-                :style="{ '--btn-color': color.value }"
-                @click="selectedBlock.color = color.value; saveDraftData()"
-              >
-                <img v-if="selectedBlock.color === color.value" src="/check.svg" alt="" class="p-editor__color-check" />
-              </button>
-            </div>
-          </div>
           <div class="p-editor__control-section">
             <h3 class="p-editor__control-title">文字對齊</h3>
             <div class="p-editor__align-row">
@@ -390,7 +359,12 @@
                 :aria-label="opt.value === 'left' ? '置左' : opt.value === 'center' ? '置中' : '置右'"
                 @click="selectedBlock.align = opt.value; saveDraftData()"
               >
-                <img :src="opt.svg" :alt="''" class="p-editor__align-icon" />
+                <!-- 用 mask 而不是 <img>：svg 才能跟著 is-active 換色 -->
+                <span
+                  class="p-editor__align-icon"
+                  :style="{ '--align-icon': `url(${opt.svg})` }"
+                  aria-hidden="true"
+                />
               </button>
             </div>
           </div>
@@ -422,9 +396,7 @@
                 :class="{ 'is-active': !eraserMode && brushColor === c.value }"
                 :style="{ '--btn-color': c.value }"
                 @click="() => { brushColor = c.value; eraserMode = false }"
-              >
-                <img v-if="!eraserMode && brushColor === c.value" src="/check.svg" alt="" class="p-editor__color-check" />
-              </button>
+              ></button>
             </div>
           </div>
           <div class="p-editor__control-section">
@@ -487,9 +459,10 @@
           type="button"
           class="p-editor__draw-btn p-editor__draw-btn--undo"
           :disabled="!drawCanUndo"
+          aria-label="上一步"
           @click="fabricBrush.undo()"
         >
-          <img src="/undo.svg" alt="上一步" class="p-editor__draw-btn-icon" />
+          <span class="p-editor__btn-symbol" aria-hidden="true">↺</span>
         </button>
         <button
           type="button"
@@ -502,9 +475,10 @@
           type="button"
           class="p-editor__draw-btn p-editor__draw-btn--redo"
           :disabled="!drawCanRedo"
+          aria-label="下一步"
           @click="fabricBrush.redo()"
         >
-          <img src="/undo.svg" alt="下一步" class="p-editor__draw-btn-icon p-editor__draw-btn-icon--redo" />
+          <span class="p-editor__btn-symbol" aria-hidden="true">↻</span>
         </button>
       </template>
 
@@ -579,8 +553,8 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { StickerInstance, DraftData, StickyNoteStyle, TextBlockInstance } from '~/types'
 import { getStickerById, STICKER_LIBRARY } from '~/data/stickers'
 import { BACKGROUND_IMAGES } from '~/data/backgrounds'
-import { STICKY_NOTE_SHAPES, DEFAULT_SHAPE_ID, getShapeById } from '~/data/shapes'
-import { EDITOR_TABS, TEXT_ALIGN_OPTIONS, TEXT_COLORS, BRUSH_COLORS, MAX_CONTENT_LENGTH } from '~/data/editor-config'
+import { DEFAULT_SHAPE_ID } from '~/data/shapes'
+import { EDITOR_TABS, EDITOR_GUIDE_STEPS, EDITOR_TEXT_COLOR, EDITOR_DEFAULT_BRUSH_COLOR, TEXT_ALIGN_OPTIONS, BRUSH_COLORS, MAX_CONTENT_LENGTH } from '~/data/editor-config'
 import { getTextBlockStyle, getStickerStyle } from '~/utils/sticky-note-style'
 import { useStickyNoteStyle, type StickyNoteStyleProps } from '~/composables/useStickyNoteStyle'
 import { useTextBlockInteraction } from '~/composables/useTextBlockInteraction'
@@ -620,23 +594,18 @@ const MAX_TEXT_BLOCKS = 3
 // Loading state
 const loading = ref(true)
 const showIntroOverlay = ref(true)
-const termsAccepted = ref(false)
-const showTermsModal = ref(false)
 
 const onStartClick = () => {
   if (loading.value) return
-  if (!termsAccepted.value) {
-    showTermsModal.value = true
-    return
-  }
   showIntroOverlay.value = false
-  
+
   // 顯示教學或草稿邏輯移至開始之後
   checkInitialModals()
 }
 
 // Editor State
 const backgroundImage = ref(BACKGROUND_IMAGES?.[0]?.url ?? '') // 預設第一張背景
+// 造型已不開放選擇：便利貼輪廓改由背景圖自身的去背外框決定，此值固定為預設造型
 const shape = ref(DEFAULT_SHAPE_ID)
 const stickers = ref<StickerInstance[]>([])
 const selectedStickerId = ref<string | null>(null)
@@ -732,8 +701,8 @@ const drawingCanvasRef = ref<HTMLCanvasElement | null>(null)
 const showVerticalCenterGuide = ref(false)
 const showHorizontalCenterGuide = ref(false)
 
-// Tab: 便利貼 | 文字 | 繪圖 | 貼紙
-const activeTab = ref<'note' | 'text' | 'draw' | 'sticker' | null>(null)
+// Tab: 便利貼 | 文字 | 繪圖 | 貼紙（預設進入便利貼）
+const activeTab = ref<'note' | 'text' | 'draw' | 'sticker' | null>('note')
 
 // 文字編輯模式：有選取文字區塊時
 const isTextEditMode = computed(() => selectedTextBlockId.value !== null)
@@ -829,13 +798,12 @@ const exportNodeRef = ref<HTMLElement | null>(null)
 const drawMode = ref(false)
 const drawCanUndo = ref(false)
 const drawCanRedo = ref(false)
-const brushColor = ref('#ffffff')
+const brushColor = ref<string>(EDITOR_DEFAULT_BRUSH_COLOR)
 const brushWidth = ref(8)
 const eraserMode = ref(false)
 const drawingData = ref<string | null>(null)
 // 資料來源
 const backgrounds = BACKGROUND_IMAGES
-const shapes = STICKY_NOTE_SHAPES
 
 // 是否顯示貼紙編輯框：有選取貼紙 且 非便利貼/繪圖狀態（便利貼或繪圖 tab 時編輯框消失）
 const showStickerEditFrame = computed(() => {
@@ -939,7 +907,7 @@ watch(drawMode, (v) => {
 
 const noteStyleProps = computed<StickyNoteStyleProps>(() => ({
   shape: shape.value || DEFAULT_SHAPE_ID,
-  textColor: '#ffffff', // 預設白色，各文字區塊有各自的顏色
+  textColor: EDITOR_TEXT_COLOR, // 文字只有一個顏色，不再讓使用者挑色
   textAlign: 'center',
   backgroundImage: backgroundImage.value
 }))
@@ -1140,7 +1108,7 @@ const addTextBlock = (): TextBlockInstance => {
     y: 50 + (Math.random() - 0.5) * 20,
     scale: 2,
     rotation: 0,
-    color: '#ffffff',
+    color: EDITOR_TEXT_COLOR,
     align: 'center',
     locked: false
   }
@@ -1410,7 +1378,7 @@ const saveDraftData = () => {
     content: nonEmptyTextBlocks.map(b => b.content).join('\n'),
     backgroundImage: backgroundImage.value,
     shape: shape.value,
-    textColor: nonEmptyTextBlocks[0]?.color ?? '#ffffff',
+    textColor: EDITOR_TEXT_COLOR,
     textAlign: nonEmptyTextBlocks[0]?.align ?? 'center',
     stickers: stickers.value,
     textTransform: nonEmptyTextBlocks[0] ? { x: nonEmptyTextBlocks[0].x, y: nonEmptyTextBlocks[0].y, scale: nonEmptyTextBlocks[0].scale, rotation: nonEmptyTextBlocks[0].rotation } : undefined,
@@ -1509,7 +1477,8 @@ const loadDraftData = async (draft: DraftData) => {
 
   // 多文字區塊：優先使用 textBlocks，否則從舊格式轉換
   if (draft.textBlocks && draft.textBlocks.length > 0) {
-    textBlocks.value = draft.textBlocks
+    // 舊草稿可能存了各式各樣的文字顏色，一律覆蓋成統一色
+    textBlocks.value = draft.textBlocks.map(b => ({ ...b, color: EDITOR_TEXT_COLOR }))
   } else if (draft.content) {
     // 向下相容：舊格式只有一個文字區塊
     const t = draft.textTransform
@@ -1520,7 +1489,7 @@ const loadDraftData = async (draft: DraftData) => {
       y: t?.y ?? 50,
       scale: t?.scale ?? 2,
       rotation: t?.rotation ?? 0,
-      color: draft.textColor ?? '#ffffff',
+      color: EDITOR_TEXT_COLOR, // 忽略草稿存的舊顏色，一律用統一色
       align: draft.textAlign ?? 'center'
     }]
   } else {
@@ -1670,7 +1639,7 @@ const previewNoteData = computed(() => {
   const style: StickyNoteStyle = {
     backgroundImage: backgroundImage.value,
     shape: shape.value,
-    textColor: textBlocks.value[0]?.color ?? '#ffffff',
+    textColor: EDITOR_TEXT_COLOR,
     textAlign: textBlocks.value[0]?.align ?? 'center',
     stickers: stickers.value,
     textTransform: textBlocks.value[0] ? { x: textBlocks.value[0].x, y: textBlocks.value[0].y, scale: textBlocks.value[0].scale, rotation: textBlocks.value[0].rotation } : undefined,
@@ -1993,9 +1962,8 @@ import { toPng } from 'html-to-image'
 
 // ── 字型嵌入輔助 ──────────────────────────────────────────────────────────────
 // html-to-image 若使用 skipFonts:true 不嵌入字型，輸出圖會掉回系統字體（手機最明顯）。
-// 透過 fontEmbedCSS 選項自行把字型轉成 base64 傳入，可同時解決：
-//   1. 自架字型（JasonHandwriting2）在 off-screen export node 可能載不到
-//   2. Google Fonts 跨網域 cssRules 讀取拋出 SecurityError
+// 透過 fontEmbedCSS 選項自行把字型轉成 base64 傳入，解決自架字型在 off-screen
+// export node 可能載不到的問題。全站只有 ChenYuluoyan 一支字體，同 origin，沒有 CORS 問題。
 const blobToDataURL = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -2005,52 +1973,15 @@ const blobToDataURL = (blob: Blob): Promise<string> =>
   })
 
 const buildFontEmbedCSS = async (): Promise<string> => {
-  const parts: string[] = []
-
-  // 1. 自架字型：JasonHandwriting2（同 origin，直接 fetch 沒有 CORS 問題）
   try {
-    const res = await fetch('/JasonHandwriting2-SemiBold.woff2')
-    if (res.ok) {
-      const base64 = await blobToDataURL(await res.blob())
-      parts.push(`@font-face{font-family:'JasonHandwriting2';src:url('${base64}') format('woff2');font-weight:normal;font-style:normal;}`)
-    }
+    const res = await fetch('/ChenYuluoyan-2.0-Thin.woff')
+    if (!res.ok) return ''
+    const base64 = await blobToDataURL(await res.blob())
+    return `@font-face{font-family:'ChenYuluoyan';src:url('${base64}') format('woff');font-weight:normal;font-style:normal;}`
   } catch (e) {
-    console.warn('[FontEmbed] JasonHandwriting2 失敗:', e)
+    console.warn('[FontEmbed] ChenYuluoyan 失敗:', e)
+    return ''
   }
-
-  // 2. Google Fonts：Nanum Pen Script
-  // fetch() 可以跨網域讀取回應內容（不同於 cssRules 的 CORS 限制），
-  // 取得 CSS text 後，再把 CSS 內每個 url() 字型檔也一一下載並轉 base64。
-  try {
-    const cssRes = await fetch(
-      'https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap',
-      { headers: { 'User-Agent': navigator.userAgent } }
-    )
-    if (cssRes.ok) {
-      let cssText = await cssRes.text()
-      const urlRegex = /url\(([^)]+)\)/g
-      const matches = [...cssText.matchAll(urlRegex)]
-      await Promise.all(
-        matches.map(async (m) => {
-          const rawUrl = (m[1] ?? '').replace(/['"]/g, '')
-          try {
-            const fontRes = await fetch(rawUrl)
-            if (fontRes.ok) {
-              const base64 = await blobToDataURL(await fontRes.blob())
-              cssText = cssText.replace(m[0], `url(${base64})`)
-            }
-          } catch (e2) {
-            console.warn('[FontEmbed] 字型檔下載失敗:', rawUrl, e2)
-          }
-        })
-      )
-      parts.push(cssText)
-    }
-  } catch (e) {
-    console.warn('[FontEmbed] Nanum Pen Script 失敗:', e)
-  }
-
-  return parts.join('\n')
 }
 // ─────────────────────────────────────────────────────────────────────────────
 

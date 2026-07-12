@@ -16,69 +16,50 @@
   </div>
   <div v-show="isCanvasReady && hasUserStarted" class="p-canvas" ref="canvasRef" :style="{ '--display-scale': displayNoteScale }">
 
-    <!-- ─── 左側容器 ─── -->
-    <div class="p-canvas__half p-canvas__half--stack">
-      <!-- ─── 左半：隨機散落區 ─── -->
-      <div class="p-canvas__live-zone" ref="liveZoneRef">
-        <div
-          v-for="item in displayState.liveGrid"
-          :key="getId(item)"
-          class="p-canvas__scatter-slot"
-        >
-          <div
-            v-if="displayState.borrowedId !== getId(item)"
-            :data-flip-id="getId(item)"
-            class="p-canvas__note-wrap"
-            :style="getScatterStyle(getId(item))"
-          >
-            <StickyNote :note="item" />
-          </div>
-        </div>
-      </div>
+    <!-- ─── 全螢幕散落區（底層） ─── -->
+    <div class="p-canvas__live-zone" ref="liveZoneRef">
       <div
-        v-show="showInterstitial && interstitialSrc"
-        class="p-canvas__interstitial p-canvas__interstitial--left"
-        aria-hidden="true"
+        v-for="item in displayState.liveGrid"
+        :key="getId(item)"
+        class="p-canvas__scatter-slot"
       >
-        <video
-          ref="videoLeftRef"
-          class="p-canvas__interstitial__video"
-          :src="interstitialSrc || undefined"
-          preload="auto"
-          playsinline
-          @timeupdate="onInterstitialPrimaryTimeUpdate"
-          @ended="onInterstitialVideoEnded"
-        />
+        <div
+          v-if="displayState.borrowedId !== getId(item)"
+          :data-flip-id="getId(item)"
+          class="p-canvas__note-wrap"
+          :style="getScatterStyle(getId(item))"
+        >
+          <StickyNote :note="item" />
+        </div>
       </div>
     </div>
 
-    <!-- ─── 右側容器 ─── -->
-    <div class="p-canvas__half p-canvas__half--stack">
-      <!-- ─── 右半：單張展示區 ─── -->
-      <div class="p-canvas__display-zone">
-        <div
-          v-if="displayState.nowPlaying"
-          :key="'display-' + getId(displayState.nowPlaying)"
-          :data-flip-id="getId(displayState.nowPlaying)"
-          class="p-canvas__note-wrap p-canvas__note-wrap--display"
-        >
-          <StickyNote :note="displayState.nowPlaying" />
-        </div>
-      </div>
+    <!-- ─── 中間上方：單張展示區 ─── -->
+    <div class="p-canvas__display-zone" :style="displayBoxStyle">
       <div
-        v-show="showInterstitial && interstitialSrc"
-        class="p-canvas__interstitial p-canvas__interstitial--right"
-        aria-hidden="true"
+        v-if="displayState.nowPlaying"
+        :key="'display-' + getId(displayState.nowPlaying)"
+        :data-flip-id="getId(displayState.nowPlaying)"
+        class="p-canvas__note-wrap p-canvas__note-wrap--display"
       >
-        <video
-          ref="videoRightRef"
-          class="p-canvas__interstitial__video"
-          :src="interstitialSrc || undefined"
-          preload="auto"
-          playsinline
-          muted
-        />
+        <StickyNote :note="displayState.nowPlaying" />
       </div>
+    </div>
+
+    <!-- ─── 定時插播影片：單支全螢幕 ─── -->
+    <div
+      v-show="showInterstitial && interstitialSrc"
+      class="p-canvas__interstitial"
+      aria-hidden="true"
+    >
+      <video
+        ref="videoRef"
+        class="p-canvas__interstitial__video"
+        :src="interstitialSrc || undefined"
+        preload="auto"
+        playsinline
+        @ended="onInterstitialVideoEnded"
+      />
     </div>
   </div>
 </template>
@@ -130,8 +111,7 @@ let unsubCanvasVideo: (() => void) | null = null
 let interstitialArmTimer: ReturnType<typeof setInterval> | null = null
 
 const showInterstitial = ref(false)
-const videoLeftRef = ref<HTMLVideoElement | null>(null)
-const videoRightRef = ref<HTMLVideoElement | null>(null)
+const videoRef = ref<HTMLVideoElement | null>(null)
 const isCanvasReady = ref(false)
 /** 使用者點「開始」後才啟動 Conductor／插播排程，以符合瀏覽器自動播放（有聲影片）政策 */
 const hasUserStarted = ref(false)
@@ -146,16 +126,6 @@ const {
   finishInterstitial,
   clearInterstitialArmQueue
 } = useConductor()
-
-/** 右側影片無音訊，依左側時間軸對齊 */
-const onInterstitialPrimaryTimeUpdate = () => {
-  const primary = videoLeftRef.value
-  const secondary = videoRightRef.value
-  if (!primary || !secondary) return
-  if (Math.abs(secondary.currentTime - primary.currentTime) > 0.12) {
-    secondary.currentTime = primary.currentTime
-  }
-}
 
 const preloadVideo = (url: string): Promise<void> => {
   if (interstitialPreloadMap.has(url)) return interstitialPreloadMap.get(url)!
@@ -241,17 +211,13 @@ const startInterstitialPlayback = async () => {
     }
   }
   await nextTick()
-  const left = videoLeftRef.value
-  const right = videoRightRef.value
-  if (!left || !right || !interstitialSrc.value) return
-  left.pause()
-  right.pause()
-  left.currentTime = 0
-  right.currentTime = 0
-  left.muted = false
+  const video = videoRef.value
+  if (!video || !interstitialSrc.value) return
+  video.pause()
+  video.currentTime = 0
+  video.muted = false
   try {
-    await left.play()
-    await right.play()
+    await video.play()
   } catch (e) {
     if (!isAutoplayNotAllowedError(e)) {
       console.error('[canvas] 插播影片播放失敗', e)
@@ -259,9 +225,8 @@ const startInterstitialPlayback = async () => {
       return
     }
     try {
-      left.muted = true
-      await left.play()
-      await right.play()
+      video.muted = true
+      await video.play()
       console.warn(
         '[canvas] 插播改為靜音播放（瀏覽器自動播放政策：需使用者互動後才能自動有聲播放）'
       )
@@ -273,8 +238,7 @@ const startInterstitialPlayback = async () => {
 }
 
 const onInterstitialVideoEnded = () => {
-  videoLeftRef.value?.pause()
-  videoRightRef.value?.pause()
+  videoRef.value?.pause()
   showInterstitial.value = false
   finishInterstitial()
 }
@@ -290,183 +254,197 @@ const getId = (item: any): string => item?.id ?? item?.token ?? ''
    ══════════════════════════════════════════════ */
 
 /** 已分配的位置快取 { flipId → { left, top, rot, size } } */
-const positionMap = reactive<Record<string, { left: number; top: number; rot: number; size: number }>>({})
+const positionMap = reactive<Record<string, { left: number; top: number; rot: number; size: number; cellKey: string }>>({})
 
-/** padding (px) 用於 live-zone 四邊內邊距 */
-const PADDING = 20
-/** live-zone 右側額外留白（px），便利貼不會出現在此區域 */
-const PADDING_RIGHT = 40
-/** live-zone 左側額外留白（px），便利貼不會出現在此區域 */
-const PADDING_LEFT = 10
+/* ══════════════════════════════════════════════
+   版面配置：中間上方大張 display + 四周散落 live
+   （display 的位置尺寸由此計算，散落演算法會避開此保留區）
+   ══════════════════════════════════════════════ */
 
-/** 虛擬座標系：便利貼邊長（用於 Fermat 螺旋 + 碰撞檢測，與 index 一致） */
-const VIRTUAL_ITEM_SIZE = 550
-/** 便利貼間距：負值 = 更緊、正值 = 更鬆。半徑 = (對角線 + MARGIN) / 2，與 index MARGIN=-20 同概念 */
-const VIRTUAL_MARGIN = -50
-const VIRTUAL_COLLISION_RADIUS = (VIRTUAL_ITEM_SIZE * Math.SQRT2 + VIRTUAL_MARGIN) / 2
-const VIRTUAL_CELL_SIZE = VIRTUAL_COLLISION_RADIUS * 2
-const SPIRAL_C = 35
-
-interface VirtualPosition { x: number; y: number }
-
-function getGridKey(x: number, y: number, cellSize: number): string {
-  return `${Math.floor(x / cellSize)},${Math.floor(y / cellSize)}`
-}
-
-function isColliding(
-  pos: VirtualPosition,
-  grid: Map<string, VirtualPosition[]>,
-  cellSize: number
-): boolean {
-  const cellX = Math.floor(pos.x / cellSize)
-  const cellY = Math.floor(pos.y / cellSize)
-  const diam = VIRTUAL_COLLISION_RADIUS * 2
-  const diamSq = diam * diam
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      const neighbors = grid.get(`${cellX + dx},${cellY + dy}`)
-      if (neighbors) {
-        for (const ex of neighbors) {
-          const dx2 = pos.x - ex.x
-          const dy2 = pos.y - ex.y
-          if (dx2 * dx2 + dy2 * dy2 < diamSq) return true
-        }
-      }
-    }
-  }
-  return false
-}
-
+/** 大張 display 便利貼佔螢幕高 / 寬的比例（取正方形較小邊，另乘 displayScale） */
+const DISPLAY_H_RATIO = 0.52
+const DISPLAY_W_RATIO = 0.30
+/** display 距畫面頂端的比例 */
+const DISPLAY_TOP_RATIO = 0.06
 /**
- * Fermat 螺旋 + 碰撞檢測：產生不重疊的虛擬座標（與 index.vue 相同邏輯）
+ * 散落區四邊留白：取舞台短邊的比例（最少 24px）。
+ * 固定 px 在 4K LED 牆上等於沒有留白，便利貼會壓到 canvasBg 四角的花束與禮盒。
  */
-function calculatePositionsVirtual(itemCount: number): VirtualPosition[] {
-  const positions: VirtualPosition[] = []
-  const grid = new Map<string, VirtualPosition[]>()
-  let spiralIndex = 0
+const SCATTER_EDGE = 24
+const SCATTER_EDGE_RATIO = 0.05
 
-  for (let i = 0; i < itemCount; i++) {
-    if (i === 0) {
-      const pos = { x: 0, y: 0 }
-      positions.push(pos)
-      const key = getGridKey(pos.x, pos.y, VIRTUAL_CELL_SIZE)
-      grid.set(key, [pos])
-      spiralIndex++
-      continue
-    }
-    let found = false
-    let currentPos: VirtualPosition = { x: 0, y: 0 }
-    while (!found) {
-      const r = SPIRAL_C * Math.sqrt(spiralIndex)
-      const theta = spiralIndex * 137.508 * (Math.PI / 180)
-      currentPos = {
-        x: r * Math.cos(theta),
-        y: r * Math.sin(theta)
-      }
-      if (!isColliding(currentPos, grid, VIRTUAL_CELL_SIZE)) found = true
-      spiralIndex++
-    }
-    positions.push(currentPos)
-    const key = getGridKey(currentPos.x, currentPos.y, VIRTUAL_CELL_SIZE)
-    if (!grid.has(key)) grid.set(key, [])
-    grid.get(key)!.push(currentPos)
+interface Box { left: number; top: number; size: number }
+interface Rect { left: number; top: number; right: number; bottom: number }
+
+const displayBox = ref<Box | null>(null)
+
+const displayBoxStyle = computed(() => {
+  const b = displayBox.value
+  if (!b) return { position: 'absolute' as const, opacity: 0 }
+  return { position: 'absolute' as const, left: `${b.left}px`, top: `${b.top}px`, width: `${b.size}px`, height: `${b.size}px` }
+})
+
+/** 舞台固定 16:9（置中留邊），所有版位以舞台為座標系，不能用視窗尺寸 */
+const STAGE_ASPECT = 16 / 9
+
+function getStageSize() {
+  const stage = canvasRef.value
+  if (stage?.clientWidth && stage.clientHeight) {
+    return { W: stage.clientWidth, H: stage.clientHeight }
   }
-  return positions
+  // 尚未顯示（v-show 期間量不到）時，用視窗推算：舞台是視窗內置中的最大 16:9 方框
+  const W = Math.min(window.innerWidth, window.innerHeight * STAGE_ASPECT)
+  return { W, H: W / STAGE_ASPECT }
+}
+
+/** 依舞台尺寸計算 display 大張展示區（舞台座標） */
+function computeLayoutBoxes() {
+  const { W, H } = getStageSize()
+  const scale = displayNoteScale.value
+
+  const size = Math.min(H * DISPLAY_H_RATIO, W * DISPLAY_W_RATIO) * scale
+  const left = (W - size) / 2
+  const top = H * DISPLAY_TOP_RATIO
+  displayBox.value = { left, top, size }
+}
+
+function rectsOverlap(al: number, at: number, ar: number, ab: number, r: Rect): boolean {
+  return al < r.right && ar > r.left && at < r.bottom && ab > r.top
+}
+
+/** 散落需避開的保留區（螢幕座標）：中央上方的大張 display 直欄 */
+function buildReservedRects(): Rect[] {
+  const rects: Rect[] = []
+  const d = displayBox.value
+  if (d) {
+    const m = d.size * 0.06
+    // 由畫面頂端一路保留到 display 底部，使中央上半保持淨空
+    rects.push({ left: d.left - m, top: 0, right: d.left + d.size + m, bottom: d.top + d.size + m })
+  }
+  return rects
 }
 
 /**
- * 為所有 liveGrid 便利貼分配不重疊位置。
- * 演算法：Fermat 螺旋 + 碰撞檢測（與 index 一致），再依張數縮放到 live-zone 內，便利貼大小一併縮放。
+ * 為所有 liveGrid 便利貼分配落點。
+ * 作法：以「最大張數」建立固定網格（尺寸、位置穩定），避開保留區後，
+ * 讓現有便利貼留在原格、新便利貼取「離 display 最近的空格」，達到框住大張、位移最小。
  */
 function recalcPositions() {
   const zone = liveZoneRef.value
   if (!zone) return
-  const zoneW = zone.clientWidth - (PADDING + PADDING_LEFT) - (PADDING + PADDING_RIGHT) // 左右扣掉額外留白
-  const zoneH = zone.clientHeight - PADDING * 2
+  computeLayoutBoxes()
+
+  const W = zone.clientWidth
+  const H = zone.clientHeight
+  if (!W || !H) return
 
   const items = displayState.value.liveGrid.map((n: any) => getId(n))
   for (const id of Object.keys(positionMap)) {
     if (!items.includes(id)) delete positionMap[id]
   }
-
   const count = items.length
   if (!count) return
 
-  const positions = calculatePositionsVirtual(count)
+  // 以「當前張數」與「設定上限」取較大者決定網格 → 網格與便利貼尺寸固定、落點穩定
+  const gridMax = Math.max(count, maxNotes.value)
+  const reserved = buildReservedRects()
 
-  let minX = positions[0]!.x - VIRTUAL_ITEM_SIZE / 2
-  let maxX = positions[0]!.x + VIRTUAL_ITEM_SIZE / 2
-  let minY = positions[0]!.y - VIRTUAL_ITEM_SIZE / 2
-  let maxY = positions[0]!.y + VIRTUAL_ITEM_SIZE / 2
-  for (let i = 1; i < positions.length; i++) {
-    const p = positions[i]!
-    minX = Math.min(minX, p.x - VIRTUAL_ITEM_SIZE / 2)
-    maxX = Math.max(maxX, p.x + VIRTUAL_ITEM_SIZE / 2)
-    minY = Math.min(minY, p.y - VIRTUAL_ITEM_SIZE / 2)
-    maxY = Math.max(maxY, p.y + VIRTUAL_ITEM_SIZE / 2)
+  const edge = Math.max(SCATTER_EDGE, Math.min(W, H) * SCATTER_EDGE_RATIO)
+  const innerW = W - edge * 2
+  const innerH = H - edge * 2
+
+  // 由粗到細加密網格，直到可用格子數 ≥ gridMax
+  let cells: { cx: number; cy: number; key: string }[] = []
+  let noteSize = 80
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const target = gridMax + attempt * 4
+
+    // 便利貼是正方形，格子越接近正方形就能放得越大、分佈也越均勻。
+    // 直接由 sqrt(target * aspect) 取欄數，在 16:9 上會切出 5×4 這種扁格子
+    //（格寬是格高的 1.4 倍），便利貼被格高卡住而偏小、左右卻留下大縫。
+    let cols = 2
+    let rows = 2
+    let bestDev = Infinity
+    for (let c = 2; c <= target; c++) {
+      const r = Math.max(2, Math.ceil(target / c))
+      const dev = Math.abs(Math.log((innerW / c) / (innerH / r)))
+      if (dev < bestDev) {
+        bestDev = dev
+        cols = c
+        rows = r
+      }
+    }
+
+    const cellW = innerW / cols
+    const cellH = innerH / rows
+    noteSize = Math.max(60, Math.min(cellW, cellH) * 0.9 * liveNoteScale.value)
+    const half = noteSize / 2
+
+    const found: typeof cells = []
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cx = edge + (c + 0.5) * cellW
+        const cy = edge + (r + 0.5) * cellH
+        if (reserved.some(R => rectsOverlap(cx - half, cy - half, cx + half, cy + half, R))) continue
+        found.push({ cx, cy, key: `${Math.round(cx)},${Math.round(cy)}` })
+      }
+    }
+    cells = found
+    if (cells.length >= gridMax) break
   }
+  if (!cells.length) return
 
-  let virtualW = maxX - minX
-  let virtualH = maxY - minY
-  const centerX = (minX + maxX) / 2
-  const centerY = (minY + maxY) / 2
-  const zoneAspect = zoneW / zoneH
-  const virtualAspect = virtualW / virtualH
-
-  // 將虛擬佈局長寬比對齊 live-zone，減少留白、提高空間利用
-  if (virtualAspect > zoneAspect) {
-    const factor = (zoneW * virtualH) / (zoneH * virtualW)
-    for (const p of positions) {
-      p.x = centerX + (p.x - centerX) * factor
-    }
-    const halfW = (maxX - minX) / 2
-    minX = centerX - halfW * factor
-    maxX = centerX + halfW * factor
-    virtualW = maxX - minX
-  } else if (virtualAspect < zoneAspect) {
-    const factor = (zoneH * virtualW) / (zoneW * virtualH)
-    for (const p of positions) {
-      p.y = centerY + (p.y - centerY) * factor
-    }
-    const halfH = (maxY - minY) / 2
-    minY = centerY - halfH * factor
-    maxY = centerY + halfH * factor
-    virtualH = maxY - minY
-  }
-
-  // 所有 note 在同一次 recalcPositions 內尺寸完全一致，依張數軎小确保不重疊
-  const scale = Math.min((zoneW / virtualW) || 1, (zoneH / virtualH) || 1)
-  const size = Math.max(40, VIRTUAL_ITEM_SIZE * scale) * liveNoteScale.value
-
-  items.forEach((id, index) => {
-    const p = positions[index]!
-    const existing = positionMap[id]
-    const rot = existing ? existing.rot : (Math.random() - 0.5) * 12
-
-    const centerX = (p.x - minX) * scale
-    const centerY = (p.y - minY) * scale
-
-    const left = centerX - size / 2
-    const top = centerY - size / 2
-
-    positionMap[id] = {
-      left: Math.max(0, Math.min(left, zoneW - size)),
-      top: Math.max(0, Math.min(top, zoneH - size)),
-      rot,
-      size
-    }
+  // 離 display 中心近者優先（新便利貼會先框住大張）
+  const dcx = displayBox.value ? displayBox.value.left + displayBox.value.size / 2 : W / 2
+  const dcy = displayBox.value ? displayBox.value.top + displayBox.value.size / 2 : H / 2
+  cells.sort((a, b) => {
+    const da = (a.cx - dcx) ** 2 + (a.cy - dcy) ** 2
+    const db = (b.cx - dcx) ** 2 + (b.cy - dcy) ** 2
+    return da - db
   })
+  const cellByKey = new Map(cells.map(c => [c.key, c]))
+
+  // 1) 現有便利貼若原格仍有效則保留原格
+  const usedKeys = new Set<string>()
+  const needCell: string[] = []
+  for (const id of items) {
+    const ex = positionMap[id]
+    if (ex && cellByKey.has(ex.cellKey) && !usedKeys.has(ex.cellKey)) {
+      usedKeys.add(ex.cellKey)
+    } else {
+      needCell.push(id)
+    }
+  }
+
+  // 2) 需要新格子的便利貼：依序取「離 display 最近的未使用格」
+  let cursor = 0
+  for (const id of needCell) {
+    while (cursor < cells.length && usedKeys.has(cells[cursor]!.key)) cursor++
+    const cell = cells[cursor] ?? cells[cells.length - 1]!
+    usedKeys.add(cell.key)
+    const rot = positionMap[id]?.rot ?? (Math.random() - 0.5) * 12
+    positionMap[id] = { left: cell.cx - noteSize / 2, top: cell.cy - noteSize / 2, rot, size: noteSize, cellKey: cell.key }
+  }
+
+  // 3) 保留原格者：以最新 noteSize 重新對齊（處理視窗縮放後尺寸變動）
+  for (const id of items) {
+    const ex = positionMap[id]
+    if (!ex) continue
+    const cell = cellByKey.get(ex.cellKey)
+    if (!cell) continue
+    positionMap[id] = { left: cell.cx - noteSize / 2, top: cell.cy - noteSize / 2, rot: ex.rot, size: noteSize, cellKey: ex.cellKey }
+  }
 }
 
-/** 返回每張便利貼的 inline style */
+/** 返回每張便利貼的 inline style（落點已是螢幕座標） */
 function getScatterStyle(flipId: string) {
   const pos = positionMap[flipId]
   const size = pos?.size ?? 100
   if (!pos) return { width: `${size}px`, height: `${size}px` }
   return {
     position: 'absolute' as const,
-    left: `${PADDING + PADDING_LEFT + pos.left}px`,
-    top: `${PADDING + pos.top}px`,
+    left: `${pos.left}px`,
+    top: `${pos.top}px`,
     width: `${pos.size}px`,
     height: `${pos.size}px`,
     transform: `rotate(${pos.rot}deg)`
@@ -767,9 +745,24 @@ const beginCanvasSession = async () => {
   )
 }
 
+/** 視窗尺寸變動：重算三個固定區塊與散落落點（rAF 節流） */
+let resizeRaf = 0
+const onResize = () => {
+  if (resizeRaf) cancelAnimationFrame(resizeRaf)
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = 0
+    if (hasUserStarted.value) recalcPositions()
+    else computeLayoutBoxes()
+  })
+}
+
 onMounted(async () => {
   document.body.style.margin = '0'
   document.body.style.overflow = 'hidden'
+
+  // 先算好 display / logo / qr 三個固定區塊，讓大張展示區在首次 tick 前就定位
+  computeLayoutBoxes()
+  window.addEventListener('resize', onResize)
 
   try {
     const initialSnap = await getDoc(doc(db, 'system', 'canvas_video'))
@@ -809,6 +802,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', onResize)
+  if (resizeRaf) { cancelAnimationFrame(resizeRaf); resizeRaf = 0 }
   stopRecalcWatch?.()
   stopRecalcWatch = null
   unsubCanvasVideo?.()

@@ -25,10 +25,13 @@
 }
 
 @mixin sticky-note-font-size {
-  font-family: 'Nanum Pen Script', 'JasonHandwriting2', sans-serif;
+  /* 與全站同一支字體（見 base/_global.scss 的 @font-face） */
+  font-family: 'ChenYuluoyan', sans-serif;
   font-size: calc(var(--font-size-pct, 4) * 1cqw);
   line-height: 1.5;
   white-space: pre-wrap;
+  /* 便利貼是手寫字，不套系統字的字間距 */
+  letter-spacing: normal;
 }
 
 @mixin sticky-note-sticker-size {

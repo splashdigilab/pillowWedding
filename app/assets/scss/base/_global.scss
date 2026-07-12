@@ -1,8 +1,10 @@
 /* Global Styles */
+@use './variables' as var;
 
+/* 全站唯一字體（含便利貼），編輯器匯出時也是嵌入這一支 */
 @font-face {
-  font-family: 'JasonHandwriting2';
-  src: url('/JasonHandwriting2-SemiBold.woff2') format('woff2');
+  font-family: 'ChenYuluoyan';
+  src: url('/ChenYuluoyan-2.0-Thin.woff') format('woff');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -15,16 +17,28 @@
 }
 
 html {
-  font-size: 16px;
+  /*
+    全站字級的總開關：所有 UI 文字都是 rem，改這裡就整體放大。
+    ChenYuluoyan 是細體、視覺上偏小，16px 起跳讀起來太輕。
+    （便利貼上的文字不吃這裡：它是 cqw + 使用者自己縮放的。）
+  */
+  font-size: 20px;
   scroll-behavior: smooth;
 }
 
 body {
-  font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  /* 全站統一：便利貼也用同一支字體 */
+  font-family: 'ChenYuluoyan', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  /*
+    全站一律粗體。ChenYuluoyan 只有 Thin 一個字重，瀏覽器會合成假粗體（faux bold），
+    這正是我們要的——細體在小字級下太輕、讀不清楚。
+  */
+  font-weight: bold;
+  letter-spacing: 0.05em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
-  color: #333;
+  color: var.$text-dark;
 }
 
 #__nuxt,
@@ -32,11 +46,14 @@ body {
   min-height: 100dvh;
 }
 
+/* 表單元素的 UA 樣式會把 letter-spacing 打回 normal，要明確繼承回來 */
 button {
   font-family: inherit;
+  letter-spacing: inherit;
 }
 
 input,
 textarea {
   font-family: inherit;
+  letter-spacing: inherit;
 }

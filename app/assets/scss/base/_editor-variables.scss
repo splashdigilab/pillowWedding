@@ -9,7 +9,22 @@ $editor-edit-frame-delete-size: 48px;
 $editor-edit-frame-drag-bar-width: 48px;
 $editor-edit-frame-drag-bar-height: 20px;
 $editor-edit-frame-transform-handle-size: 28px;
-$editor-picker-check-size: 1rem;
-$editor-grid-gap: 0.5rem;
-$editor-draw-btn-size: 46px;
-$editor-draw-btn-height: 36px;
+/*
+  選擇器（材質 / 顏色 / 對齊）的選取樣式：外框。
+  用 outline + offset 而不是 border 或半透明遮罩，理由：
+  - outline 畫在按鈕外面，不會吃掉按鈕內容、也不會改變按鈕尺寸；
+  - offset 讓外框與色塊之間留一道底色縫隙，所以連純黑色塊也看得出被選取
+    （深色外框直接貼著深色色塊會消失）。
+*/
+$editor-picker-selected-color: #E58977; // = base/variables 的 $selected-color
+$editor-picker-selected-width: 2px;
+$editor-picker-selected-offset: 2px;
+
+/* gap 要大於「外框寬 + offset」的兩倍，相鄰按鈕的外框才不會黏在一起 */
+$editor-grid-gap: 0.75rem;
+/*
+  只有符號的小按鈕（一鍵清除、上一步、下一步）。
+  高度要與 btn-action（底部「完成繪圖」等）一致，並排時才切齊。
+*/
+$editor-icon-btn-width: 56px;
+$editor-icon-btn-height: 40px;

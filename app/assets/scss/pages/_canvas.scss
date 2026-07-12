@@ -1,35 +1,11 @@
 /*
   Canvas Page Layout
-  100vw = 左 50vw (live-zone 隨機散落) + 右 50vw (display-zone)
+  單一全螢幕：中間上方為大張 display 便利貼，四周散落 live 便利貼。
+  display 區塊的位置與尺寸由 canvas.vue 依視窗尺寸即時計算後以 inline style 指定。
 */
-@use '../components/sticky-note' as sn;
 
-/* 下方 slogan：放大縮小兩次後間隔 2 秒再重複（單次脈衝約 2s，總週期 6s） */
-@keyframes canvas-slogan-pulse {
-    0% {
-        transform: translateX(-50%) scale(1);
-    }
-
-    10% {
-        transform: translateX(-50%) scale(1.04);
-    }
-
-    20% {
-        transform: translateX(-50%) scale(1);
-    }
-
-    30% {
-        transform: translateX(-50%) scale(1.04);
-    }
-
-    40% {
-        transform: translateX(-50%) scale(1);
-    }
-
-    100% {
-        transform: translateX(-50%) scale(1);
-    }
-}
+@use '../base/variables' as var;
+@use '../components/button' as btn;
 
 @keyframes canvas-loading-spin {
     to {
@@ -61,7 +37,7 @@
 .p-canvas-loading__text {
     margin: 0;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: bold;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -84,7 +60,7 @@
 .p-canvas-start__title {
     margin: 0;
     font-size: clamp(22px, 3.5vw, 32px);
-    font-weight: 700;
+    font-weight: bold;
     letter-spacing: 0.06em;
 }
 
@@ -97,16 +73,13 @@
 }
 
 .p-canvas-start__btn {
+    @include btn.btn-skin-light(54px);
     margin-top: 8px;
-    padding: 14px 40px;
+    padding: 0 40px;
     font-size: 17px;
-    font-weight: 700;
+    font-weight: bold;
     letter-spacing: 0.12em;
-    border: none;
-    border-radius: 999px;
     cursor: pointer;
-    color: #0e1116;
-    background: #fff;
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 
@@ -121,31 +94,67 @@
     }
 }
 
+/*
+  舞台固定 16:9：取視窗內最大的 16:9 方框並置中，其餘部分留黑邊。
+  canvas.vue 的版位計算（display 區、散落格）皆以此舞台為座標系。
+*/
 .p-canvas {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(100vw, calc(100vh * 16 / 9));
+    height: min(100vh, calc(100vw * 9 / 16));
     overflow: hidden;
-    position: relative;
-    align-items: center;
-    justify-content: center;
+    /* 單一全螢幕紙面背景 */
+    background-color: var.$paper-bg;
+    background-image: url('/system/canvasBg.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
-/* 佈局容器，各佔一半 */
-.p-canvas__half {
-    flex: 1;
-    height: 100vh;
+/* 16:9 之外的留白 */
+body:has(.p-canvas) {
+    background-color: #000;
+}
+
+/* ─── 全螢幕散落區（底層）─── */
+.p-canvas__live-zone {
+    position: absolute;
+    inset: 0;
+    /* 內部 note-wrap 用 position:absolute，落點由 JS positionMap 計算 */
+    /* ⚠️ 不可加 overflow:hidden，否則 FLIP 跨區飛行動畫會被裁切 */
+}
+
+/* scatter-slot: 只是 v-for 的容器殼，不做排版（內部 note-wrap 自己 absolute）*/
+
+/* 便利貼外層包裝（FLIP 追蹤目標） */
+.p-canvas__note-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    /* ⚠️ 不加 transition：GSAP FLIP 自行接管 */
+}
+
+/* ─── 中間上方：單張展示區（位置/尺寸由 JS displayBox 以 inline style 指定）─── */
+.p-canvas__display-zone {
+    position: absolute;
     display: flex;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-
-    &--stack {
-        position: relative;
-    }
+    z-index: 300;
+    pointer-events: none;
 }
 
-/* 定時插播影片：左右各一層，蓋在該半邊內容之上 */
+/* 展示區便利貼填滿 display-zone */
+.p-canvas__note-wrap--display {
+    width: 100%;
+    height: 100%;
+}
+
+/* 定時插播影片：單支全螢幕 */
 .p-canvas__interstitial {
     position: absolute;
     inset: 0;
@@ -157,99 +166,9 @@
     box-sizing: border-box;
 }
 
-.p-canvas__interstitial--left {
-    padding-right: 30px;
-}
-
-.p-canvas__interstitial--right {
-    padding-left: 30px;
-}
-
 .p-canvas__interstitial__video {
     width: 100%;
     height: 100%;
     object-fit: contain;
     display: block;
-}
-
-/* ─── 左半：隨機散落區 ─── */
-.p-canvas__live-zone {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    /* 內部 note-wrap 用 position:absolute */
-    box-sizing: border-box;
-    /* ⚠️ 不可加 overflow:hidden，否則 FLIP 跨區飛行動畫會被裁切 */
-    background-image: url('/liveBg.webp');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
-/* scatter-slot: 只是 v-for 的容器殼，不做排版（內部 note-wrap 自己 absolute）*/
-
-/* 便利貼外層包裝（FLIP 追蹤目標） */
-.p-canvas__note-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* ⚠️ 不加 transition：GSAP FLIP 自行接管 */
-}
-
-/* ─── 右半：單張展示區 ─── */
-.p-canvas__display-zone {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    position: relative;
-    background-image: url('/displayBg.webp');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    /* 右側留白：flex 置中會將便利貼往左推，不會進入右側空白區 */
-    padding-left: 30px;
-
-    /* 畫面中間上方 logo 柱 */
-    &::before {
-        content: '';
-        position: absolute;
-        top: 8%;
-        left: calc(50% + 15px);
-        transform: translateX(-50%);
-        width: 48%;
-        height: 13%;
-        background-image: url('/postBoardLogoColumn.svg');
-        background-size: contain;
-        background-position: center top;
-        background-repeat: no-repeat;
-        pointer-events: none;
-        @include sn.sticky-note-shadow;
-    }
-
-    /* 畫面中間下方 logo 柱 */
-    &::after {
-        content: '';
-        position: absolute;
-        bottom: 6%;
-        left: calc(50% + 15px);
-        transform: translateX(-50%);
-        width: 55%;
-        height: 15%;
-        background-image: url('/qrcodeSlogan.svg');
-        background-size: contain;
-        background-position: center bottom;
-        background-repeat: no-repeat;
-        pointer-events: none;
-        @include sn.sticky-note-shadow;
-        animation: canvas-slogan-pulse 6s ease-in-out infinite;
-    }
-}
-
-/* 展示區便利貼放大 */
-.p-canvas__note-wrap--display {
-    width: calc(min(60vh, 40vw) * var(--display-scale, 1));
-    height: calc(min(60vh, 40vw) * var(--display-scale, 1));
 }

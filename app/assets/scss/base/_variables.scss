@@ -3,9 +3,31 @@ $color-grey: #241F20;
 $will-red: #E6204D;
 $will-blue: #00A8C6;
 
+/* 全站底色（首頁、編輯器、展示頁、QR、佇列頁共用，取代原本的紙紋底圖） */
+$paper-bg: #FCF6F2;
+
+/*
+  全站深色文字：標題、內文、淺底按鈕上的字一律用這個暖棕色。
+  不要在個別元件上另外寫深色 color，否則又會跑出 #333 / #241F20 混用。
+*/
+$text-dark: rgba(106, 83, 56, 0.72);
+/* 次要文字（說明、註記）：現在與主文字同一個值，全站深色字只有這一個顏色 */
+$text-dark-soft: $text-dark;
+
+/* 選取狀態（材質 / 筆刷色 / 對齊 / 編輯框…）的外框與強調色 */
+$selected-color: #E58977;
+
+/*
+  按鈕文字色：只有這兩個值。
+  深色底（button-main 水彩、$will-red、#111 等）一律用 $btn-text-on-dark，
+  淺色底（button-light 水彩、白底）一律用 $btn-text-on-light。
+*/
+$btn-text-on-dark: #fff;
+$btn-text-on-light: $text-dark;
+
 /* Editor 選取狀態（編輯框 outline、拖曳條背景，與 tutorial 示意一致） */
-$editor-selection-outline: rgba(102, 126, 234, 0.8);
-$editor-selection-bar-bg: rgba(102, 126, 234, 0.9);
+$editor-selection-outline: $selected-color;
+$editor-selection-bar-bg: $selected-color;
 
 :root {
   // Colors

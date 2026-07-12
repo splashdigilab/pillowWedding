@@ -13,9 +13,7 @@ body.is-editor-page {
   height: 100dvh;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
-  background-image: url('/paperBg.webp');
-  background-size: cover;
-  background-position: center;
+  background-color: var.$paper-bg;
 }
 
 body.is-editor-page #__nuxt,
@@ -64,6 +62,19 @@ body.is-editor-page #app {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+  /*
+    上下花草底圖（與首頁、開場頁同一組素材）。
+    寫成 .p-editor 自己的 background，而不是塞兩個 <img>：
+    元素的 background 一定畫在所有子元素之下，圖案絕對不會蓋到便利貼；
+    用 absolute 的 <img> 反而會疊在 static 的畫布之上（定位元素的繪製順序比較後面）。
+    header 與控制面板是白底，會自然把上下兩端蓋掉，只在畫布區露出來。
+  */
+  background-color: var.$paper-bg;
+  background-image: url('/system/top.webp'), url('/system/bottom.webp');
+  background-position: top center, bottom center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% auto, 100% auto;
 
   // Canvas Section - 撐滿剩餘空間，直向撐滿寬度、橫向撐滿高度
   &__canvas-section {
@@ -369,41 +380,35 @@ body.is-editor-page #app {
     align-items: end;
   }
 
+  /*
+    一鍵清除：浮在畫布上，不佔排版高度。
+    做法是留在排版流裡（.p-editor 是 flex column，它就排在 control-panel 前面）
+    但把高度壓成 0，按鈕再以 absolute 往上長。
+    這樣位置永遠貼著面板上緣，卻不會把畫布往上擠——
+    也不必像之前那樣寫死 bottom 位移（面板高度一變就會壓到面板上）。
+  */
   &__top-actions {
-    position: absolute;
-    right: 0.5rem;
-    bottom: calc(72px + 56px + 0.5rem); // 落在 control-panel 上方，與 tab 區有距離
-    display: flex;
-    justify-content: flex-end;
+    position: relative;
+    height: 0;
     z-index: 10;
+
+    .p-editor__clear-btn {
+      position: absolute;
+      right: 0.5rem;
+      bottom: 0.5rem;
+    }
   }
 
+  // 一鍵清除：與其他按鈕同一套水彩藥丸底圖
   &__clear-btn {
     @include btn.btn-reset;
-    width: ed.$editor-draw-btn-size;
-    height: ed.$editor-draw-btn-height;
+    @include btn.btn-skin-light(ed.$editor-icon-btn-height);
+    width: ed.$editor-icon-btn-width;
     flex-shrink: 0;
-    border: none;
-    border-radius: 999px;
-    background: var.$will-red;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     transition: opacity ed.$editor-transition-duration ease-in-out, transform 0.1s ease-in-out;
 
     &:active {
       transform: scale(0.95);
-    }
-
-    &-icon {
-      width: 22px;
-      height: 22px;
-      display: block;
-      object-fit: contain;
-      /* 若 src="/undo.svg" 是黑色的，可用 filter 轉成白色 */
-      filter: brightness(0) invert(1);
     }
   }
 
@@ -478,7 +483,8 @@ body.is-editor-page #app {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+    /* 上方留白：讓圖示與控制面板上緣拉開 */
+    padding: 1rem 0.5rem 0.5rem 0.5rem;
     background: transparent;
     border: none;
     border-bottom: 3px solid transparent;
@@ -492,25 +498,27 @@ body.is-editor-page #app {
     // }
 
     &.is-active {
-      border-bottom-color: #FF99B2;
+      border-bottom-color: var.$selected-color;
 
       .p-editor__tab-label {
-        color: var.$color-grey;
+        color: var.$text-dark;
         font-weight: bold;
       }
     }
   }
 
   &__tab-icon {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 1.875rem;
+    height: 1.875rem;
     object-fit: contain;
     flex-shrink: 0;
   }
 
   &__tab-label {
-    font-size: 0.75rem;
-    color: var.$color-grey;
+    padding: 0.25rem 0 0;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var.$text-dark;
     white-space: nowrap;
     transition: color ed.$editor-transition-duration ease-in-out, font-weight ed.$editor-transition-duration ease-in-out;
   }
@@ -604,19 +612,23 @@ body.is-editor-page #app {
   &__control-title {
     font-size: 0.75rem;
     font-weight: bold;
-    color: var.$color-grey;
+    color: var.$text-dark;
     margin-bottom: 0.5rem;
   }
 
   /* ========== 控制項：筆刷／顏色／對齊／材質／造型／貼紙 ========== */
   // 移除舊的繪圖控制項樣式，使用統一的顏色選擇器
 
+  /*
+    筆刷大小：軌道用文字色的淡色調，把手用選取色，
+    與材質／對齊／編輯框的選取色一致，不再出現孤立的 #7f7f7f 深灰。
+  */
   &__brush-slider {
     width: 100%;
     height: 8px;
     border-radius: 3px;
     appearance: none;
-    background: #7f7f7f;
+    background: rgba(var.$text-dark, 0.18);
     outline: none;
     cursor: pointer;
 
@@ -625,20 +637,20 @@ body.is-editor-page #app {
       width: 1.5rem;
       height: 1.5rem;
       border-radius: 50%;
-      background: white;
-      border: 2px solid #7f7f7f;
+      background: var.$selected-color;
+      border: 2px solid #fff;
+      box-shadow: var(--shadow-default);
       cursor: pointer;
-      // box-shadow: var(--shadow-soft);
     }
 
     &::-moz-range-thumb {
       width: 1.5rem;
       height: 1.5rem;
       border-radius: 50%;
-      background: white;
-      border: 2px solid #7f7f7f;
+      background: var.$selected-color;
+      border: 2px solid #fff;
+      box-shadow: var(--shadow-default);
       cursor: pointer;
-      // box-shadow: var(--shadow-soft);
     }
   }
 
@@ -653,21 +665,13 @@ body.is-editor-page #app {
     background: var(--btn-color);
 
     &.is-active {
-      background: color-mix(in srgb, var(--btn-color) 50%, transparent);
+      @include edm.editor-picker-selected;
     }
 
+    /* 橡皮擦不是顏色，用灰色跟色盤區隔開 */
     &--eraser {
-      background: white;
-
-      &.is-active {
-        opacity: 0.5;
-      }
+      background: #d6d2cc;
     }
-  }
-
-  &__color-check {
-    @include edm.editor-picker-check;
-    z-index: 1;
   }
 
   &__color-eraser-icon {
@@ -676,9 +680,11 @@ body.is-editor-page #app {
     object-fit: contain;
   }
 
-  // 文字對齊（與選擇便利貼造型一致：圖片即按鈕，選取時 opacity 0.5）
+  // 文字對齊（圖片即按鈕，選取時加外框）
   &__align-row {
     @include edm.editor-grid-scroll-x;
+    /* 留一點內距，外框才不會被捲動容器切掉 */
+    padding: ed.$editor-picker-selected-offset + ed.$editor-picker-selected-width;
   }
 
   &__align-btn {
@@ -691,17 +697,27 @@ body.is-editor-page #app {
     border: none;
     border-radius: 0;
 
+    /* 圖示用 currentColor 上色，所以選取色寫在按鈕上 */
+    color: var.$text-dark;
 
-    &.is-active .p-editor__align-icon {
-      opacity: 0.5;
+    &.is-active {
+      @include edm.editor-picker-selected;
+      color: var.$selected-color;
     }
   }
 
+  /*
+    對齊圖示：用 mask 把 svg 當形狀、以 currentColor 填色，
+    這樣選取時才能跟著換色（<img> 沒辦法從外面改 svg 的顏色）。
+  */
   &__align-icon {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    background-color: currentColor;
+    -webkit-mask: var(--align-icon) center / contain no-repeat;
+    mask: var(--align-icon) center / contain no-repeat;
+    transition: background-color ed.$editor-transition-duration ease-in-out;
   }
 
   // 材質/背景圖片選擇器：超過寬度時換行，不左右滑動
@@ -714,9 +730,7 @@ body.is-editor-page #app {
     position: relative;
 
     &.is-active {
-      .p-editor__background-img {
-        opacity: 0.5;
-      }
+      @include edm.editor-picker-selected;
     }
   }
 
@@ -725,51 +739,6 @@ body.is-editor-page #app {
     height: 100%;
     object-fit: cover;
     display: block;
-  }
-
-  &__background-check {
-    @include edm.editor-picker-check;
-  }
-
-  // Shape Grid - 樣式/形狀選擇器（符合設計稿）
-  &__shape-grid {
-    @include edm.editor-grid-scroll-x(ed.$editor-grid-gap);
-  }
-
-  &__shape-btn {
-    @include btn.btn-reset;
-    position: relative;
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-
-    &.is-active {
-      .p-editor__shape-icon {
-        opacity: 0.5;
-      }
-    }
-  }
-
-  &__shape-icon {
-    display: block;
-    width: 100%;
-    height: 100%;
-    background-color: #7f7f7f;
-    mask-image: var(--shape-svg);
-    mask-size: contain;
-    mask-repeat: no-repeat;
-    mask-position: center;
-    -webkit-mask-image: var(--shape-svg);
-    -webkit-mask-size: contain;
-    -webkit-mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-  }
-
-  &__shape-check {
-    @include edm.editor-picker-check;
   }
 
   // Sticker Grid - 貼紙選擇器，撐滿 control-section，僅此處可上下捲動
@@ -822,25 +791,11 @@ body.is-editor-page #app {
     @include btn.btn-action;
 
     &--secondary {
-      background: var.$will-red;
-      color: white;
-
-      // &:hover:not(:disabled) {
-      //   background: #d43f5f;
-      //   transform: translateY(-1px);
-      //   box-shadow: 0 4px 12px rgba(232, 76, 108, 0.3);
-      // }
+      @include btn.btn-skin-light;
     }
 
     &--primary {
-      background: var.$will-blue;
-      color: white;
-
-      // &:hover:not(:disabled) {
-      //   background: #1fb5c7;
-      //   transform: translateY(-1px);
-      //   box-shadow: 0 4px 12px rgba(34, 197, 217, 0.3);
-      // }
+      @include btn.btn-skin-main;
 
       &:active:not(:disabled) {
         transform: translateY(0);
@@ -848,8 +803,7 @@ body.is-editor-page #app {
     }
 
     &--share {
-      background: var.$will-red;
-      color: white;
+      @include btn.btn-skin-light;
     }
 
     // 繪圖模式的完成按鈕（較寬）
@@ -863,37 +817,32 @@ body.is-editor-page #app {
     }
   }
 
-  // 繪圖模式圓形按鈕（上一步/下一步）- 固定尺寸確保正圓，will-red，與完成按鈕同高
+  // 繪圖模式的上一步 / 下一步：與旁邊的「完成繪圖」同一套水彩藥丸底圖、同高
   &__draw-btn {
     @include btn.btn-reset;
-    width: ed.$editor-draw-btn-size;
-    height: ed.$editor-draw-btn-height;
+    @include btn.btn-skin-light(ed.$editor-icon-btn-height);
+    width: ed.$editor-icon-btn-width;
     flex-shrink: 0;
     flex-grow: 0;
-    border: none;
-    border-radius: 999px;
-    background: var.$will-red;
     padding: 0;
 
     &:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
-
-    // &:active:not(:disabled) {
-    //   transform: scale(0.95);
-    // }
   }
 
-  &__draw-btn-icon {
-    width: 22px;
-    height: 22px;
+  /*
+    按鈕上的符號（↺ ← →）。
+    明確指定 fallback 字體：ChenYuluoyan 是手寫中文字體，這些箭頭符號
+    不一定有字形，掉到系統字體才保證畫得出來。
+  */
+  &__btn-symbol {
+    font-family: system-ui, -apple-system, 'Segoe UI Symbol', sans-serif;
+    font-size: 1.1rem;
+    line-height: 1;
+    letter-spacing: normal;
     display: block;
-    object-fit: contain;
-
-    &--redo {
-      transform: scaleX(-1);
-    }
   }
 
 }

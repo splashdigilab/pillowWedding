@@ -1,0 +1,189 @@
+/*
+  Page: Editor Guide
+  編輯器的開場說明（標題 → 玩法 4 步驟 → 開始製作）。
+  滿版蓋在編輯器之上，按「開始製作」後關閉。
+
+  這一頁「不捲動」：高度鎖在一個視窗內，overflow 直接關掉。
+  因此所有垂直方向的尺寸（字級、圖示、間距、卡片內距）都用 clamp() 綁 dvh，
+  螢幕變矮時整頁一起縮，而不是溢出去長出捲軸。
+*/
+@use '../base/variables' as var;
+@use '../components/button' as btn;
+
+/* 文字沿用全站的 $text-dark / $text-dark-soft，不另外挑色 */
+$guide-card-bg: #fff; // 頁面底色是 $paper-bg，卡片用純白才分得出層次
+$guide-card-border: rgba(#b99c8b, 0.28);
+$guide-badge-bg: var.$selected-color;
+
+.p-editor-guide {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background-color: var.$paper-bg;
+
+    /* 不捲動：內容一律壓在一個視窗高度內 */
+    overflow: hidden;
+    display: flex;
+}
+
+/* 上下滿版花草裝飾：只是底圖，不吃點擊 */
+.p-editor-guide__deco {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
+
+    &--top {
+        top: 0;
+    }
+
+    &--bottom {
+        bottom: 0;
+    }
+}
+
+.p-editor-guide__inner {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: clamp(1rem, 3dvh, 2rem) 1.25rem clamp(1rem, 2.5dvh, 1.75rem);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+
+    /* 避開瀏海與底部 home indicator */
+    padding-top: calc(env(safe-area-inset-top, 0px) + clamp(1rem, 3dvh, 2rem));
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(1rem, 2.5dvh, 1.75rem));
+}
+
+.p-editor-guide__title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+    margin: 0;
+    font-size: clamp(1.4rem, 3dvh, 2.15rem);
+    font-weight: bold;
+    line-height: 1.25;
+    letter-spacing: 0.16em;
+    /* letter-spacing 會在每行最後一個字右邊也留間距，補回來才是視覺置中 */
+    text-indent: 0.16em;
+    color: var.$text-dark;
+    flex-shrink: 0;
+}
+
+.p-editor-guide__steps {
+    /* 這是 <ol>：拿掉預設項目符號與縮排 */
+    list-style: none;
+    padding: 0;
+    margin: clamp(1.5rem, 4dvh, 2.5rem) 0 0;
+
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    /* 列間距仍要留得下壓在卡片上緣的編號徽章（徽章半徑約 0.875rem） */
+    gap: clamp(1rem, 2dvh, 1.25rem) 0.6rem;
+
+    /* 空間不夠時，先從這裡縮 */
+    min-height: 0;
+    flex-shrink: 1;
+}
+
+.p-editor-guide__step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* 靠上排：說明文字行數不同時（有的一行、有的兩行），
+       同一列的圖示與標題才會對齊，而不是各自被置中推歪 */
+    justify-content: flex-start;
+
+    padding: clamp(0.9rem, 2.2dvh, 1.6rem) 0.35rem clamp(0.75rem, 1.8dvh, 1.25rem);
+    background: $guide-card-bg;
+    border: 1px solid $guide-card-border;
+    border-radius: 1rem;
+    min-height: 0;
+}
+
+.p-editor-guide__step-no {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    background: $guide-badge-bg;
+    color: var.$btn-text-on-dark;
+    font-size: 0.7rem;
+    font-weight: bold;
+    /* 數字置中：不要被全站的 letter-spacing 往右推 */
+    letter-spacing: normal;
+    flex-shrink: 0;
+}
+
+.p-editor-guide__step-icon {
+    width: clamp(2.25rem, 6dvh, 4rem);
+    height: clamp(2.25rem, 6dvh, 4rem);
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.p-editor-guide__step-title {
+    margin: clamp(0.4rem, 1.2dvh, 0.75rem) 0 0;
+    font-size: clamp(0.9rem, 1.6dvh, 1.05rem);
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-indent: 0.1em;
+    color: var.$text-dark;
+}
+
+.p-editor-guide__step-desc {
+    margin: clamp(0.2rem, 0.6dvh, 0.35rem) 0 0;
+    font-size: clamp(0.75rem, 1.4dvh, 0.9rem);
+    line-height: 1.6;
+    letter-spacing: normal;
+    color: var.$text-dark-soft;
+}
+
+.p-editor-guide__btn {
+    @include btn.btn-reset;
+    @include btn.btn-skin-main(56px);
+
+    margin-top: clamp(1.75rem, 4.5dvh, 3rem);
+    width: min(100%, 320px);
+    font-size: 1.1rem;
+    font-weight: bold;
+    letter-spacing: 0.16em;
+    text-indent: 0.16em;
+    flex-shrink: 0;
+
+    &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+}
+
+.p-editor-guide__btn-inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.p-editor-guide__btn-arrow {
+    /* 箭頭不吃字距，否則會離文字太遠 */
+    letter-spacing: normal;
+    text-indent: 0;
+}

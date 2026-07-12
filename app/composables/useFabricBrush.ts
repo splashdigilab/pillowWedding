@@ -5,6 +5,7 @@
  * 顯著降低低端手機因 JS 解析/執行過重而崩潰的機率。
  * Fabric.js 只在使用者首次呼叫 init() 時才開始下載（瀏覽器通常會快取，後續載入幾乎免費）。
  */
+import { EDITOR_DEFAULT_BRUSH_COLOR } from '~/data/editor-config'
 
 // ── 橡皮擦路徑取樣距離平方（避免每個 touchmove 都新增 Path 物件）
 const MIN_ERASER_DIST_SQ = 9 // ≥ 3px 才累積下一個點
@@ -24,6 +25,168 @@ const ERASER_STROKE_KEY = '__eraserStrokeId'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
+
+/* ──────────────────────────────────────────────────────────────
+   筆觸幾何：把使用者拖曳的取樣點轉成「兩端漸細（錐形收尾）」的填色輪廓。
+   線條中段維持設定寬度，起筆／收筆自然收成尖端，較有手繪筆觸感。
+   ────────────────────────────────────────────────────────────── */
+
+interface Pt { x: number; y: number }
+
+/** 去除過近的重複點，避免切線計算除以零與輪廓自交 */
+function dedupePoints(raw: Pt[]): Pt[] {
+  const out: Pt[] = []
+  for (const p of raw) {
+    const last = out[out.length - 1]
+    if (!last || (last.x - p.x) ** 2 + (last.y - p.y) ** 2 >= 1) {
+      out.push({ x: p.x, y: p.y })
+    }
+  }
+  return out
+}
+
+/** 沿路徑等距重新取樣，讓筆觸粗細變化平滑、且不受輸入取樣密度影響（上限 600 點）*/
+function resamplePoints(pts: Pt[], step: number): Pt[] {
+  if (pts.length < 2) return pts.map((p) => ({ x: p.x, y: p.y }))
+  const out: Pt[] = [{ x: pts[0]!.x, y: pts[0]!.y }]
+  let ax = pts[0]!.x
+  let ay = pts[0]!.y
+  let acc = 0
+  for (let i = 1; i < pts.length; i++) {
+    const bx = pts[i]!.x
+    const by = pts[i]!.y
+    let dx = bx - ax
+    let dy = by - ay
+    let segLen = Math.hypot(dx, dy)
+    while (segLen > 0 && acc + segLen >= step) {
+      const t = (step - acc) / segLen
+      ax += dx * t
+      ay += dy * t
+      out.push({ x: ax, y: ay })
+      dx = bx - ax
+      dy = by - ay
+      segLen = Math.hypot(dx, dy)
+      acc = 0
+      if (out.length >= 600) return out
+    }
+    acc += segLen
+    ax = bx
+    ay = by
+  }
+  const last = pts[pts.length - 1]!
+  const lo = out[out.length - 1]!
+  if ((lo.x - last.x) ** 2 + (lo.y - last.y) ** 2 > 0.25) out.push({ x: last.x, y: last.y })
+  return out
+}
+
+/** 對中心線做 [1,2,1] 加權平滑（保留頭尾端點），消除手抖稜角，讓筆畫流暢 */
+function smoothPolyline(pts: Pt[], passes = 1): Pt[] {
+  if (pts.length < 3) return pts
+  let cur = pts
+  for (let k = 0; k < passes; k++) {
+    const out: Pt[] = [cur[0]!]
+    for (let i = 1; i < cur.length - 1; i++) {
+      const a = cur[i - 1]!
+      const b = cur[i]!
+      const c = cur[i + 1]!
+      out.push({ x: (a.x + 2 * b.x + c.x) / 4, y: (a.y + 2 * b.y + c.y) / 4 })
+    }
+    out.push(cur[cur.length - 1]!)
+    cur = out
+  }
+  return cur
+}
+
+/** 以「經過中點的二次曲線」把封閉頂點串成平滑輪廓的 SVG path 字串 */
+function smoothClosedPath(v: Pt[]): string {
+  const m = v.length
+  if (m < 3) return ''
+  const r = (n: number) => Math.round(n * 100) / 100
+  const midX = (a: Pt, b: Pt) => (a.x + b.x) / 2
+  const midY = (a: Pt, b: Pt) => (a.y + b.y) / 2
+  const s0 = v[m - 1]!
+  const s1 = v[0]!
+  let d = `M ${r(midX(s0, s1))} ${r(midY(s0, s1))} `
+  for (let i = 0; i < m; i++) {
+    const cur = v[i]!
+    const nxt = v[(i + 1) % m]!
+    d += `Q ${r(cur.x)} ${r(cur.y)} ${r(midX(cur, nxt))} ${r(midY(cur, nxt))} `
+  }
+  return d + 'Z'
+}
+
+/** 產生圓形頂點（用於單擊小圓點 / 極短筆觸）*/
+function circleVertices(cx: number, cy: number, radius: number, seg = 20): Pt[] {
+  const v: Pt[] = []
+  for (let i = 0; i < seg; i++) {
+    const a = (i / seg) * Math.PI * 2
+    v.push({ x: cx + Math.cos(a) * radius, y: cy + Math.sin(a) * radius })
+  }
+  return v
+}
+
+/**
+ * 由取樣點與筆寬建立「兩端漸細」筆觸輪廓，回傳可填色的 SVG path 字串。
+ * 太短的筆觸（或單擊）回傳圓點；無有效點時回傳 null。
+ */
+function buildTaperedPath(rawPoints: Pt[], width: number): string | null {
+  const cleaned = dedupePoints(rawPoints)
+  if (cleaned.length === 0) return null
+  const half = Math.max(width / 2, 0.5)
+
+  // 等距重取樣後再平滑中心線，讓線條流暢（不再有手抖稜角）；
+  // 只做 1 遍，避免多遍平滑把彎曲細節的弧長吃掉、讓線條看起來變短。
+  const pts = smoothPolyline(resamplePoints(cleaned, Math.max(1.5, width * 0.35)), 1)
+  const n = pts.length
+
+  let total = 0
+  const cum: number[] = [0]
+  for (let i = 1; i < n; i++) {
+    total += Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y)
+    cum.push(total)
+  }
+
+  // 極短或單點 → 圓點
+  if (n < 2 || total < half) {
+    const c = pts[Math.floor(n / 2)] ?? pts[0]!
+    return smoothClosedPath(circleVertices(c.x, c.y, half))
+  }
+
+  // 兩端漸細的長度：隨筆畫長度按比例延伸，但上限收在全長的 30%，
+  // 保證中段一定留有一截實心滿寬，筆畫讀起來就是實際畫的長度，不會因兩端淡出而變短。
+  const taperLen = Math.min(total * 0.3, width * 3 + total * 0.15)
+  // smoothstep：尖端與肩部都柔和，S 形過渡最自然
+  const smoothstep = (t: number) => t * t * (3 - 2 * t)
+  const radiusAt = (i: number): number => {
+    const s = cum[i]!
+    const dEnd = Math.min(s, total - s)
+    const t = taperLen > 0 ? Math.min(dEnd / taperLen, 1) : 1
+    return Math.max(half * smoothstep(t), 0.35)
+  }
+
+  const left: Pt[] = []
+  const right: Pt[] = []
+  for (let i = 0; i < n; i++) {
+    const prev = pts[Math.max(0, i - 1)]!
+    const next = pts[Math.min(n - 1, i + 1)]!
+    let tx = next.x - prev.x
+    let ty = next.y - prev.y
+    const len = Math.hypot(tx, ty) || 1
+    tx /= len
+    ty /= len
+    const nx = -ty
+    const ny = tx
+    const rad = radiusAt(i)
+    left.push({ x: pts[i]!.x + nx * rad, y: pts[i]!.y + ny * rad })
+    right.push({ x: pts[i]!.x - nx * rad, y: pts[i]!.y - ny * rad })
+  }
+
+  // 封閉輪廓：左側正向 + 右側反向
+  const loop: Pt[] = []
+  for (let i = 0; i < n; i++) loop.push(left[i]!)
+  for (let i = n - 1; i >= 0; i--) loop.push(right[i]!)
+  return smoothClosedPath(loop)
+}
 
 export function useFabricBrush(onPathCreated?: () => void) {
   let fabricCanvas: AnyObj = null
@@ -50,7 +213,45 @@ export function useFabricBrush(onPathCreated?: () => void) {
     initialHeight = height
 
     // ── 動態載入 Fabric.js（不進入主 bundle）
-    const { Canvas, PencilBrush } = await import('fabric')
+    const { Canvas, PencilBrush, Path } = await import('fabric')
+
+    // ── 手繪筆刷：繼承 PencilBrush，改以「兩端漸細」的填色輪廓取代等寬線條，
+    //    讓線條更像真實筆觸（起筆／收筆自然收尖）。
+    class TaperPencilBrush extends PencilBrush {
+      // 強制每次 move 都完整重繪，讓即時預覽也呈現漸細筆觸
+      override needsFullRender() {
+        return true
+      }
+
+      override _render(ctx: CanvasRenderingContext2D = (this as AnyObj).canvas.contextTop) {
+        const d = buildTaperedPath((this as AnyObj)._points, (this as AnyObj).width)
+        if (!d) return
+        ;(this as AnyObj)._saveAndTransform(ctx)
+        ctx.fillStyle = (this as AnyObj).color
+        ctx.fill(new Path2D(d))
+        ctx.restore()
+      }
+
+      override _finalizeAndAddPath() {
+        const canvas: AnyObj = (this as AnyObj).canvas
+        const d = buildTaperedPath((this as AnyObj)._points, (this as AnyObj).width)
+        canvas.clearContext(canvas.contextTop)
+        if (!d) {
+          canvas.requestRenderAll()
+          return
+        }
+        const path = new Path(d, {
+          fill: (this as AnyObj).color,
+          stroke: null,
+          strokeWidth: 0
+        })
+        canvas.fire('before:path:created', { path })
+        canvas.add(path)
+        canvas.requestRenderAll()
+        path.setCoords()
+        canvas.fire('path:created', { path })
+      }
+    }
 
     // ── 橡皮擦筆刷：繼承 PencilBrush，使用 destination-out 混合模式
     //    關鍵修正：onMouseMove 加入距離門檻，避免每個 touchmove 點都新增 Path 物件
@@ -152,8 +353,8 @@ export function useFabricBrush(onPathCreated?: () => void) {
       if (onPathCreated) onPathCreated()
     })
 
-    pencilBrush = new PencilBrush(fabricCanvas)
-    pencilBrush.color = '#333333'
+    pencilBrush = new TaperPencilBrush(fabricCanvas)
+    pencilBrush.color = EDITOR_DEFAULT_BRUSH_COLOR
     pencilBrush.width = 4
 
     eraserBrush = new EraserBrush(fabricCanvas)

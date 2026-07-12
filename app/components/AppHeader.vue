@@ -1,10 +1,11 @@
 <template>
   <header class="c-header" :class="{ 'c-header--transparent': transparent, 'c-header--relative': relative }">
-    <button v-if="showBack" class="c-header__back-btn" @click="$emit('back')">
-      <img src="/back-btn.svg" alt="返回" />
+    <button v-if="showBack" class="c-header__back-btn" aria-label="返回" @click="$emit('back')">
+      <!-- 用 mask 而不是 <img>：svg 才能吃 currentColor 上色 -->
+      <span class="c-header__icon" style="--icon: url('/back-btn.svg')" aria-hidden="true" />
     </button>
     <div class="c-header__logo">
-      <img src="/postBoardLogo.svg" alt="WillMusic Logo" />
+      <img src="/system/logo.webp" alt="WillMusic Logo" />
     </div>
     <div v-if="$slots.trailing || showHelp" class="c-header__trailing">
       <slot name="trailing">
@@ -15,7 +16,7 @@
           aria-label="說明"
           @click="$emit('help')"
         >
-          <img src="/question.svg" alt="" />
+          <span class="c-header__icon" style="--icon: url('/question.svg')" aria-hidden="true" />
         </button>
       </slot>
     </div>

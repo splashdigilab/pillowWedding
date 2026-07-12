@@ -37,7 +37,7 @@
     &__title {
         font-size: 1.5rem;
         font-weight: bold;
-        color: #333;
+        color: var.$text-dark;
         margin-bottom: 1rem;
     }
 
@@ -84,17 +84,15 @@
     @include btn.btn-action;
 
     &--secondary {
-        background: var.$will-red;
-        color: white;
+        @include btn.btn-skin-light;
     }
 
     &--primary {
-        background: var.$will-blue;
-        color: white;
+        @include btn.btn-skin-main;
     }
 
     &--danger {
         background: var.$will-red; // #dc2626;
-        color: white;
+        color: var.$btn-text-on-dark;
     }
 }

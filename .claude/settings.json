@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(break)",
+      "Bash(curl -s -o /private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/67f70205-cc1e-47fd-817d-b099b8acb5c5/scratchpad/canvas.html -w \"%{http_code}\" \"http://localhost:3000/canvas\")",
+      "Bash(node sim.mjs)",
+      "Bash(node sim2.mjs)",
+      "Bash(pkill -f \"nuxt dev\")",
+      "Bash(pkill -f \"node.*nuxt\")",
+      "Bash(cat)",
+      "Bash(node sim3.mjs)",
+      "Bash(timeout 200 npx vue-tsc --noEmit -p tsconfig.json)",
+      "Bash(timeout 240 npx vue-tsc --noEmit -p tsconfig.json)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(node_modules/.bin/vue-tsc --noEmit -p tsconfig.json)",
+      "Bash(node /private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/185b199b-7c87-4659-9d45-a2cd885e90b4/scratchpad/taper_test2.mjs)",
+      "Bash(echo \"EXIT=$? errors=$\\(grep -c 'error TS' /tmp/tsc2.txt\\)\")",
+      "Bash(node /private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/185b199b-7c87-4659-9d45-a2cd885e90b4/scratchpad/len_test.mjs)",
+      "Bash(node /private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/185b199b-7c87-4659-9d45-a2cd885e90b4/scratchpad/body_test.mjs)",
+      "Bash(echo \"EXIT=$? errors=$\\(grep -c 'error TS' /tmp/tsc3.txt\\)\")",
+      "Bash(python3 -m venv venv)",
+      "Bash(./venv/bin/pip install *)",
+      "Bash(./venv/bin/python -c \"import numpy,scipy,PIL;print\\('ok', numpy.__version__, scipy.__version__\\)\")",
+      "Bash(/private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/e77eb2ee-27bc-48c2-b3ef-ec9abd573f3f/scratchpad/venv/bin/python -c 'import numpy,scipy,PIL')",
+      "Bash(/private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/e77eb2ee-27bc-48c2-b3ef-ec9abd573f3f/scratchpad/venv/bin/python -c 'import numpy,scipy,PIL;print\\(numpy.__version__, scipy.__version__\\)')",
+      "Bash(/private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/e77eb2ee-27bc-48c2-b3ef-ec9abd573f3f/scratchpad/venv/bin/python -c ' *)",
+      "Bash(/private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/e77eb2ee-27bc-48c2-b3ef-ec9abd573f3f/scratchpad/venv/bin/python /private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/e77eb2ee-27bc-48c2-b3ef-ec9abd573f3f/scratchpad/dekey.py public/sticker .assets-original/sticker)",
+      "Bash(xargs kill)",
+      "Bash(/private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/e77eb2ee-27bc-48c2-b3ef-ec9abd573f3f/scratchpad/venv/bin/python /private/tmp/claude-501/-Users-kevin-Documents-Github-pillowWedding/e77eb2ee-27bc-48c2-b3ef-ec9abd573f3f/scratchpad/greenscreen.py public/system .assets-original/system)",
+      "Bash(pkill -f \"remote-debugging-port=9222\")",
+      "Bash(pkill -f \".output/server/index.mjs\")",
+      "Bash(pkill -f \"http.server 8099\")",
+      "Bash(npx playwright *)",
+      "Bash(curl -sI http://localhost:3000/system/logo.webp)",
+      "Bash(curl -sI http://localhost:3000/system/lp-main.webp)",
+      "Bash(kill 15182)",
+      "Bash(PORT=3100 node .output/server/index.mjs)"
+    ]
+  }
+}

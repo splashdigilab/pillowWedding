@@ -1,5 +1,48 @@
 /* 共用按鈕元件 - mixins 供 editor 等頁面使用 */
 
+@use '../base/variables' as var;
+
+/*
+  水彩藥丸底圖：取代原本的純色按鈕底。
+  圖檔本身是 2000×443 的藥丸（四角透明、白色虛線內框），
+  兩端各約 222px（443 的一半）是半圓端點。
+
+  用 border-image 做三刀切片，而不是 background-size: 100% 100%：
+  左右兩個端點依按鈕高度「等比」縮放，長寬比固定不會被拉伸，
+  只有中段的水彩填色會隨按鈕寬度水平延展。
+  因為端點寬度必須換算成 px，套用的按鈕需要明確高度，由 $height 指定。
+*/
+$btn-skin-cap: 222; // 端點在原圖中的寬度（px）
+$btn-skin-cap-ratio: 0.5; // 222 / 443：端點寬度相對於按鈕高度的比例
+
+@mixin btn-skin($image, $text, $height: 40px) {
+  $cap: $height * $btn-skin-cap-ratio;
+
+  height: $height;
+  /* 藥丸至少要放得下左右兩個端點，否則端點會互相重疊 */
+  min-width: $height;
+
+  background: none;
+  color: $text;
+
+  border: 0 solid transparent;
+  border-radius: 0;
+  border-image-source: url($image);
+  border-image-slice: 0 $btn-skin-cap fill;
+  border-image-width: 0 $cap;
+  border-image-repeat: stretch;
+}
+
+/* 主要按鈕（原 will-blue） */
+@mixin btn-skin-main($height: 40px) {
+  @include btn-skin('/system/button-main.webp', var.$btn-text-on-dark, $height);
+}
+
+/* 其他按鈕（原 will-red / 深灰 / 白底）：底圖較淺，文字改用深色才讀得到 */
+@mixin btn-skin-light($height: 40px) {
+  @include btn-skin('/system/button-light.webp', var.$btn-text-on-light, $height);
+}
+
 @mixin btn-reset {
   cursor: pointer;
   transition: all 0.2s ease;
@@ -33,6 +76,11 @@
   flex-shrink: 0;
   border: none;
   overflow: hidden;
+  /*
+    一定要顯式設 transparent：button 的瀏覽器預設底色是灰的 (ButtonFace)，
+    而材質圖是去背的（圓形、愛心…），不設的話四周會露出一塊灰色方框。
+  */
+  background: transparent;
 }
 
 // 方形選擇按鈕 52px（造型）

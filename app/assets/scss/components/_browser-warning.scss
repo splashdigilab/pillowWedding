@@ -1,7 +1,8 @@
-/* 
+/*
   Component: Browser Warning
   應用程式內建瀏覽器警告彈窗
 */
+@use '../base/variables' as var;
 
 .c-browser-warning {
   &-overlay {
@@ -38,7 +39,7 @@
     font-size: 1.5rem;
     font-weight: bold;
     text-align: center;
-    color: #333;
+    color: var.$text-dark;
     margin-bottom: 1rem;
   }
 
@@ -51,7 +52,7 @@
 
     strong {
       color: #f43f5e;
-      font-weight: 600;
+      font-weight: bold;
     }
   }
 
@@ -63,8 +64,8 @@
     border-left: 4px solid #667eea;
 
     .instructions-title {
-      font-weight: 600;
-      color: #333;
+      font-weight: bold;
+      color: var.$text-dark;
       margin-bottom: 0.75rem;
       font-size: 0.875rem;
     }
@@ -89,7 +90,7 @@
       line-height: 1.5;
 
       &:first-child {
-        font-weight: 600;
+        font-weight: bold;
         margin-bottom: 0.5rem;
       }
     }
@@ -103,7 +104,7 @@
     border: none;
     border-radius: 8px;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: bold;
     cursor: pointer;
     transition: transform 0.2s ease;
 
