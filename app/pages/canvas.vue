@@ -289,8 +289,8 @@ const DISPLAY_W_RATIO = 0.30
 const DISPLAY_TOP_RATIO = 0.26
 
 /** 中間最上方 Logo：寬度佔舞台寬的比例、距頂端比例、原圖長寬比（寬度刻意與 display 齊寬）*/
-const LOGO_W_RATIO = 0.26
-const LOGO_TOP_RATIO = 0.06
+const LOGO_W_RATIO = 0.3
+const LOGO_TOP_RATIO = 0.04
 const LOGO_ASPECT = 2045 / 769
 /**
  * 散落區四邊留白：取舞台短邊的比例（最少 24px）。
