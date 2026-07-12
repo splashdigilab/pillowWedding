@@ -1,108 +1,71 @@
 /*
   Page: Queue Status Minimal
-  佇列狀態與等待時間頁面
+  送出成功頁：header（同編輯器）＋「送出成功」＋回到首頁。
 */
 @use '../base/variables' as var;
+@use '../components/button' as btn;
 
 .p-queue-status-minimal {
   position: fixed;
   inset: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var.$paper-bg;
+  flex-direction: column;
   color: var.$text-dark;
+
+  /*
+    與編輯器同一組上下花草底圖。
+    寫成元素自己的 background 而不是塞 <img>：background 一定畫在所有子元素之下，
+    圖案不會蓋到內容（絕對定位的 <img> 反而會疊在 static 內容之上）。
+  */
+  background-color: var.$paper-bg;
+  background-image: url('/system/top.webp'), url('/system/bottom.webp');
+  background-position: top center, bottom center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% auto, 100% auto;
 }
 
 .p-queue-status-minimal__container {
+  /* 佔滿 header 以下的空間，內容垂直置中 */
+  flex: 1;
+  min-height: 0;
+
   width: 100%;
   max-width: 400px;
+  margin: 0 auto;
   padding: 40px 32px;
+
   display: flex;
   flex-direction: column;
-  gap: 60px;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
 }
 
 .p-queue-status-minimal__title {
-  font-size: 32px;
+  margin: 0;
+  font-size: clamp(1.75rem, 8vw, 2.25rem);
   font-weight: bold;
-  letter-spacing: -0.02em;
-  margin: 0 0 40px 0;
+  letter-spacing: 0.14em;
+  /* letter-spacing 會在最後一個字右邊也留間距，補回來才是視覺置中 */
+  text-indent: 0.14em;
   text-align: center;
 }
 
-.p-queue-status-minimal__stats {
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  border-radius: 20px;
-  padding: 30px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.p-queue-status-minimal__stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.p-queue-status-minimal__stat-label {
-  font-size: 14px;
-  color: #666;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.p-queue-status-minimal__stat-value {
-  font-size: 48px;
-  font-weight: bold;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  /* Prevents jumping during countdown */
-}
-
-.p-queue-status-minimal__stat-value small {
-  font-size: 20px;
-  font-weight: bold;
-  color: #888;
-  margin-left: 4px;
-}
-
-.p-queue-status-minimal__stat-value.is-countdown {
-  color: #000;
-}
-
-.p-queue-status-minimal__stat-divider {
-  height: 1px;
-  background: rgba(0, 0, 0, 0.08);
-  margin: 24px 0;
-  width: 100%;
-}
-
-.p-queue-status-minimal__actions {
-  display: flex;
-  justify-content: center;
-}
-
 .p-queue-status-minimal__btn-home {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #111;
-  color: var.$btn-text-on-dark;
-  text-decoration: none;
-  padding: 16px 32px;
-  border-radius: 100px;
-  font-size: 16px;
-  font-weight: bold;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
+  @include btn.btn-reset;
+  @include btn.btn-skin-main(56px);
 
-.p-queue-status-minimal__btn-home:active {
-  transform: scale(0.96);
-  opacity: 0.9;
+  width: min(100%, 300px);
+  font-size: 1.1rem;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  text-decoration: none;
+
+  transition: transform 0.2s ease, opacity 0.2s ease;
+
+  &:active {
+    transform: scale(0.96);
+    opacity: 0.9;
+  }
 }
