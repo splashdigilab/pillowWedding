@@ -32,13 +32,24 @@
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
-  padding: 40px 32px;
+  padding: 40px 24px;
 
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2.5rem;
+}
+
+/*
+  白色色塊：底色、圓角、陰影都由 .c-modal 提供（與編輯器彈窗同一份樣式），
+  這裡只補這一頁需要的排版。
+*/
+.p-queue-status-minimal__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem;
 }
 
 .p-queue-status-minimal__title {

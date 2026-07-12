@@ -1,30 +1,30 @@
 import { ref, readonly, onMounted, onUnmounted } from 'vue'
 
 /**
- * 讓 In-App Browser（LINE / FB / IG）的鍵盤彈出變成「軟」的過場。
+ * 讓 In-App Browser（LINE / FB / IG）的鍵盤行為向 iOS Safari / Chrome 看齊：
+ * 鍵盤「疊」在畫面上，而不是把整個版面壓扁成一小條。
  *
- * 背景：這類瀏覽器是原生 WebView，鍵盤彈出時是 App 直接把 WebView 的 frame 砍矮，
- * 網頁端擋不掉（interactive-widget=overlays-content 只有 Chromium 系認得，LINE iOS 的
- * WKWebView 會忽略）。我們唯一能控制的是「版面怎麼反應」：
+ * 背景：這類瀏覽器是原生 WebView，鍵盤彈出時 App 直接把 WebView 的 frame 砍矮
+ * （window.innerHeight 真的變小），網頁端擋不掉——interactive-widget=overlays-content
+ * 只有 Chromium 系認得，LINE iOS 的 WKWebView 會忽略。
  *
- *   1. 版面高度不再直接綁 100dvh（瀏覽器一改就瞬間生效、無法補間），
- *      改綁本 composable 寫入的 --app-h，高度變化由我們驅動 → 可以掛 CSS transition。
- *   2. --app-base-h 是「沒有鍵盤時」的高度，給 body / #__nuxt 用：外層維持原本高度不縮，
- *      過場期間 .p-editor 才不會被外層 overflow 裁掉。
+ * 我們唯一能控制的是「版面怎麼反應」，所以策略是：不反應。
+ *
+ *   1. --app-base-h = 沒有鍵盤時的視窗高度。版面高度一律綁這個值，鍵盤彈出時
+ *      完全不縮；被鍵盤蓋住的部分就落在 WebView 之外看不到而已——
+ *      這正是 iOS Safari 疊加鍵盤時的樣子。
+ *   2. --app-shift = 整個版面要往上平移多少，才能讓「正在打字的元素」露在鍵盤上緣之上。
+ *      Safari 會自己捲 visual viewport 去追游標；我們的版面是 position: fixed、
+ *      捲不動，這段位移只好自己算。
  *   3. keyboardBusy 讓頁面在鍵盤動畫期間停掉昂貴的量測（ResizeObserver → Vue 重繪）。
  *
  * 判斷依據刻意用 window.innerHeight（layout viewport）而不是 visualViewport：
- * 只有「瀏覽器真的把 WebView 壓小」才會變。鍵盤是疊在畫面上的瀏覽器（支援
- * overlays-content 的 iOS Safari / Android Chrome）innerHeight 不動，這裡就整個不作用，
- * 維持原本的行為。
+ * 只有「瀏覽器真的把 WebView 壓小」才會變。鍵盤純疊加的瀏覽器（iOS Safari /
+ * Android Chrome）innerHeight 不動 → keyboardHeight 恆為 0 → 這裡整組不作用，
+ * 追游標的事交還給瀏覽器自己做。
  */
 
 interface SoftKeyboardOptions {
-  /**
-   * 在把新高度寫進 CSS 變數「之前」呼叫，讓頁面還來得及量到尚未變形的版面。
-   * next / prev = 鍵盤佔掉的高度（px）。
-   */
-  beforeApply?: (next: number, prev: number) => void
   /** 鍵盤高度不再變動、且過場動畫跑完後呼叫一次，用來做精確校正。 */
   onSettle?: () => void
 }
@@ -35,6 +35,9 @@ const KEYBOARD_MIN_HEIGHT = 120
 /** 需大於 SCSS 的 $editor-keyboard-duration，動畫真的跑完才解除 busy */
 const SETTLE_DELAY = 360
 
+/** 正在編輯的元素與鍵盤上緣之間至少留這麼多空隙 */
+const CARET_MARGIN = 16
+
 export const useSoftKeyboard = (options: SoftKeyboardOptions = {}) => {
   const keyboardHeight = ref(0)
   const keyboardOpen = ref(false)
@@ -42,14 +45,52 @@ export const useSoftKeyboard = (options: SoftKeyboardOptions = {}) => {
   const keyboardBusy = ref(false)
 
   let baseHeight = 0
+  /** 目前版面往上平移的距離（px） */
+  let shift = 0
   let rafId: number | null = null
   let settleTimer: ReturnType<typeof setTimeout> | null = null
 
   const writeVars = () => {
     const style = document.documentElement.style
     style.setProperty('--app-base-h', `${baseHeight}px`)
-    style.setProperty('--app-h', `${baseHeight - keyboardHeight.value}px`)
     style.setProperty('--kb-h', `${keyboardHeight.value}px`)
+    style.setProperty('--app-shift', `${shift}px`)
+  }
+
+  /** 目前聚焦、而且真的會叫出鍵盤的元素 */
+  const focusedField = (): HTMLElement | null => {
+    const el = document.activeElement as HTMLElement | null
+    if (!el || el === document.body) return null
+    if (el.isContentEditable) return el
+    return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ? el : null
+  }
+
+  /**
+   * 版面不縮，被鍵盤蓋住的部分就純粹看不到——所以要把整個版面往上推，
+   * 讓正在打字的元素落在鍵盤上緣之上。
+   */
+  const computeShift = () => {
+    if (keyboardHeight.value <= 0) return 0
+    const el = focusedField()
+    if (!el) return 0
+
+    const visible = baseHeight - keyboardHeight.value
+    const rect = el.getBoundingClientRect()
+    // rect 量到的是「已套用目前 shift」的位置，先加回去還原成沒位移時的座標
+    const top = rect.top + shift
+    const bottom = rect.bottom + shift
+
+    const needed = bottom + CARET_MARGIN - visible
+    if (needed <= 0) return 0
+    // 但不能推過頭，把元素自己頂出畫面上緣
+    return Math.max(0, Math.min(needed, top - CARET_MARGIN))
+  }
+
+  const applyShift = () => {
+    const next = computeShift()
+    if (next === shift) return
+    shift = next
+    writeVars()
   }
 
   const scheduleSettle = () => {
@@ -57,20 +98,19 @@ export const useSoftKeyboard = (options: SoftKeyboardOptions = {}) => {
     settleTimer = setTimeout(() => {
       settleTimer = null
       keyboardBusy.value = false
+      // 動畫跑完後，版面與鍵盤都靜止了，再校正一次位移
+      applyShift()
       options.onSettle?.()
     }, SETTLE_DELAY)
   }
 
   const applyKeyboardHeight = (next: number) => {
-    const prev = keyboardHeight.value
-    if (next === prev) return
+    if (next === keyboardHeight.value) return
 
     keyboardBusy.value = true
-    // 先給頁面量「還沒套用新高度」的版面，它才算得出過場的終點值
-    options.beforeApply?.(next, prev)
-
     keyboardHeight.value = next
     keyboardOpen.value = next > 0
+    shift = computeShift()
     writeVars()
     scheduleSettle()
   }
@@ -99,9 +139,26 @@ export const useSoftKeyboard = (options: SoftKeyboardOptions = {}) => {
     })
   }
 
+  /** 鍵盤還開著時換點另一個文字框：高度沒變、resize 不會來，得自己重算位移 */
+  const onFocusIn = () => {
+    if (!keyboardOpen.value) return
+    keyboardBusy.value = true
+    applyShift()
+    scheduleSettle()
+  }
+
+  /**
+   * 版面比 WebView 高，WKWebView 會忍不住捲動 document 去露出游標，
+   * 捲完上方就空一塊。位移由我們自己算，這裡把它捲回去。
+   */
+  const onScroll = () => {
+    if (window.scrollY !== 0) window.scrollTo(0, 0)
+  }
+
   // 旋轉會整個換一組尺寸：清掉基準，等瀏覽器回報新尺寸後重新量
   const onOrientationChange = () => {
     baseHeight = 0
+    shift = 0
     keyboardHeight.value = 0
     keyboardOpen.value = false
     keyboardBusy.value = true
@@ -121,19 +178,23 @@ export const useSoftKeyboard = (options: SoftKeyboardOptions = {}) => {
     window.addEventListener('resize', schedule)
     window.visualViewport?.addEventListener('resize', schedule)
     window.addEventListener('orientationchange', onOrientationChange)
+    window.addEventListener('focusin', onFocusIn)
+    window.addEventListener('scroll', onScroll, { passive: true })
   })
 
   onUnmounted(() => {
     window.removeEventListener('resize', schedule)
     window.visualViewport?.removeEventListener('resize', schedule)
     window.removeEventListener('orientationchange', onOrientationChange)
+    window.removeEventListener('focusin', onFocusIn)
+    window.removeEventListener('scroll', onScroll)
     if (rafId !== null) cancelAnimationFrame(rafId)
     if (settleTimer) clearTimeout(settleTimer)
 
     const style = document.documentElement.style
     style.removeProperty('--app-base-h')
-    style.removeProperty('--app-h')
     style.removeProperty('--kb-h')
+    style.removeProperty('--app-shift')
   })
 
   return {

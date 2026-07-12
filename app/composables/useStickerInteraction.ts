@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { StickerInstance } from '~/types'
+import { measureStickerBounds, type StickerBounds } from '~/utils/sticker-bounds'
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
@@ -32,7 +33,14 @@ export function useStickerInteraction(options: UseStickerInteractionOptions) {
     isTwoFingerGesture
   } = options
 
-  let dragState: { stickerId: string; startX: number; startY: number; initialX: number; initialY: number } | null = null
+  let dragState: {
+    stickerId: string
+    startX: number
+    startY: number
+    initialX: number
+    initialY: number
+    bounds: StickerBounds
+  } | null = null
   let transformState: {
     stickerId: string
     centerX: number
@@ -43,6 +51,13 @@ export function useStickerInteraction(options: UseStickerInteractionOptions) {
     initialRotation: number
   } | null = null
 
+  /** 拖曳起始時量一次尺寸：拖曳過程 scale 不變，邊界也不會變 */
+  const getBounds = (frameEl: EventTarget | null): StickerBounds =>
+    measureStickerBounds(
+      (frameEl as HTMLElement | null)?.getBoundingClientRect(),
+      canvasRef.value?.getBoundingClientRect()
+    )
+
   const onStickerMouseDown = (e: MouseEvent, sticker: StickerInstance) => {
     if ((e.target as HTMLElement).closest('.p-editor__edit-frame-delete, .p-editor__edit-frame-transform-handle')) return
     e.preventDefault()
@@ -52,7 +67,8 @@ export function useStickerInteraction(options: UseStickerInteractionOptions) {
       startX: e.clientX,
       startY: e.clientY,
       initialX: sticker.x,
-      initialY: sticker.y
+      initialY: sticker.y,
+      bounds: getBounds(e.currentTarget)
     }
     draggingStickerId.value = sticker.id
 
@@ -63,8 +79,9 @@ export function useStickerInteraction(options: UseStickerInteractionOptions) {
       const deltaY = ((moveEvent.clientY - dragState.startY) / rect.height) * 100
       const s = stickers.value.find(st => st.id === dragState!.stickerId)
       if (s) {
-        s.x = clamp(dragState.initialX + deltaX, 5, 95)
-        s.y = clamp(dragState.initialY + deltaY, 5, 95)
+        const { minX, maxX, minY, maxY } = dragState.bounds
+        s.x = clamp(dragState.initialX + deltaX, minX, maxX)
+        s.y = clamp(dragState.initialY + deltaY, minY, maxY)
       }
     }
 
@@ -91,7 +108,8 @@ export function useStickerInteraction(options: UseStickerInteractionOptions) {
       startX: touch.clientX,
       startY: touch.clientY,
       initialX: sticker.x,
-      initialY: sticker.y
+      initialY: sticker.y,
+      bounds: getBounds(e.currentTarget)
     }
     draggingStickerId.value = sticker.id
 
@@ -108,8 +126,9 @@ export function useStickerInteraction(options: UseStickerInteractionOptions) {
         const deltaY = ((t.clientY - dragState.startY) / rect.height) * 100
         const s = stickers.value.find(st => st.id === dragState!.stickerId)
         if (s) {
-          s.x = clamp(dragState.initialX + deltaX, 5, 95)
-          s.y = clamp(dragState.initialY + deltaY, 5, 95)
+          const { minX, maxX, minY, maxY } = dragState.bounds
+          s.x = clamp(dragState.initialX + deltaX, minX, maxX)
+          s.y = clamp(dragState.initialY + deltaY, minY, maxY)
         }
       }
     }

@@ -6,17 +6,28 @@
 
 /* ========== 全域：編輯器頁面鎖定視窗 ==========
    --app-base-h = 沒有鍵盤時的視窗高度（由 useSoftKeyboard 寫入）。
-   外層刻意「不」跟著鍵盤縮：鍵盤彈出時 .p-editor 是慢慢收合的，外層若瞬間變矮
-   會用 overflow 把還在動畫中的 .p-editor 裁掉。反正超出的部分本來就在 WebView 之外，看不到。
-   沒有 JS 的情況（SSR、composable 尚未掛載）退回 100dvh，行為與改動前相同。
+   整個版面的高度都綁這個值，鍵盤彈出時「完全不縮」：LINE 這類 in-app browser 會把
+   WebView 壓矮，但版面不理它，被鍵盤蓋住的部分就落在 WebView 之外——這就是 iOS Safari
+   疊加鍵盤的樣子，畫面不會被壓成一小條。
+   沒有 JS 的情況（SSR、composable 尚未掛載）退回 100dvh。
 */
 body.is-editor-page {
   overflow: hidden;
   position: fixed;
+  left: 0;
   width: 100%;
   height: 100%;
   height: 100dvh;
   height: var(--app-base-h, 100dvh);
+  /*
+    --app-shift = 為了讓正在打字的文字框露在鍵盤上緣之上，整個版面要往上平移的距離。
+    Safari 是瀏覽器自己捲 visual viewport 去追游標，我們的版面 position: fixed 捲不動，
+    只好自己推。
+    用 top 而不是 transform：transform 會讓 body 變成 fixed 子孫的 containing block，
+    modal（position: fixed）就會被 .p-editor 的 max-width 夾住、蓋不滿整個畫面。
+  */
+  top: calc(-1 * var(--app-shift, 0px));
+  transition: top ed.$editor-keyboard-duration ed.$editor-keyboard-ease;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
   background-color: var.$paper-bg;
@@ -31,6 +42,7 @@ body.is-editor-page #app {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  body.is-editor-page,
   .p-editor,
   .p-editor__canvas-scaler {
     transition: none;
@@ -72,14 +84,13 @@ body.is-editor-page #app {
   margin: 0 auto;
   max-width: 1024px;
   /*
-    --app-h = 視窗高度扣掉鍵盤（由 useSoftKeyboard 寫入）。
-    綁 100dvh 的話，LINE 把 WebView 壓矮的瞬間高度就直接跳掉，沒有補間的餘地；
-    綁自己的變數才能用 transition 把它變成滑順的收合。不寫 max-height：
-    它會在 transition 跑完之前就把高度夾死。溢出的內容本來就有 overflow: hidden 擋著。
+    高度綁 --app-base-h（鍵盤彈出前的視窗高度），不綁 100dvh 也不扣鍵盤：
+    LINE 把 WebView 壓矮時 100dvh 會跟著變小、整個編輯器被壓扁，
+    綁基準高度才能讓鍵盤單純「疊」在畫面上。畫布尺寸因此完全不受鍵盤影響，
+    也就不會再觸發鍵盤動畫期間的 ResizeObserver 連環重繪。
   */
   height: 100dvh;
-  height: var(--app-h, 100dvh);
-  transition: height ed.$editor-keyboard-duration ed.$editor-keyboard-ease;
+  height: var(--app-base-h, 100dvh);
   display: flex;
   flex-direction: column;
   overflow: hidden;

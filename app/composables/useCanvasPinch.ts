@@ -1,8 +1,17 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
 import type { StickerInstance, TextBlockInstance } from '~/types'
+import { getStickerBounds, type StickerBounds as Bounds } from '~/utils/sticker-bounds'
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
+
+/** 完整留在畫布內的邊界（文字區塊用） */
+const insideBounds = (halfWidthPct: number, halfHeightPct: number): Bounds => ({
+  minX: halfWidthPct,
+  maxX: 100 - halfWidthPct,
+  minY: halfHeightPct,
+  maxY: 100 - halfHeightPct
+})
 
 const SCALE_MIN = 1
 const SCALE_MAX = 20
@@ -277,12 +286,11 @@ export function useCanvasPinch(options: UseCanvasPinchOptions) {
       ) as HTMLElement | null
       if (!frameEl) return
       const fr = frameEl.getBoundingClientRect()
-      const halfWidthPct = (fr.width / rect.width) * 50
-      const halfHeightPct = (fr.height / rect.height) * 50
-      const minX = halfWidthPct
-      const maxX = 100 - halfWidthPct
-      const minY = halfHeightPct
-      const maxY = 100 - halfHeightPct
+      // 貼紙允許超出邊緣，縮放後只要沒整張跑到畫布外就不動它
+      const { minX, maxX, minY, maxY } = getStickerBounds(
+        (fr.width / rect.width) * 50,
+        (fr.height / rect.height) * 50
+      )
       st.x = clamp(st.x, minX, maxX)
       st.y = clamp(st.y, minY, maxY)
     }
@@ -452,7 +460,7 @@ export function useCanvasPinch(options: UseCanvasPinchOptions) {
         const center = 50
         const threshold = centerSnapThresholdPct
 
-        const applyPosition = (pos: { x: number; y: number }, halfWidthPct: number, halfHeightPct: number) => {
+        const applyPosition = (pos: { x: number; y: number }, bounds: Bounds) => {
           let { x, y } = pos
 
           // 垂直中心 snap
@@ -472,36 +480,29 @@ export function useCanvasPinch(options: UseCanvasPinchOptions) {
           }
 
           return {
-            x: clamp(x, halfWidthPct, 100 - halfWidthPct),
-            y: clamp(y, halfHeightPct, 100 - halfHeightPct)
+            x: clamp(x, bounds.minX, bounds.maxX),
+            y: clamp(y, bounds.minY, bounds.maxY)
           }
         }
+
+        const nextPos = () => ({
+          x: canvasDragState!.initX + deltaX,
+          y: canvasDragState!.initY + deltaY
+        })
 
         if (canvasDragState.type === 'text') {
           const block = textBlocks.value.find(b => b.id === (canvasDragState as any).textBlockId)
           if (block) {
-            const next = applyPosition(
-              {
-                x: canvasDragState.initX + deltaX,
-                y: canvasDragState.initY + deltaY
-              },
-              canvasDragState.halfWidthPct,
-              canvasDragState.halfHeightPct
-            )
+            // 文字必須完整留在畫布內
+            const next = applyPosition(nextPos(), insideBounds(canvasDragState.halfWidthPct, canvasDragState.halfHeightPct))
             block.x = next.x
             block.y = next.y
           }
         } else if (canvasDragState.type === 'sticker') {
           const st = stickers.value.find(s => s.id === (canvasDragState as any).stickerId)
           if (st) {
-            const next = applyPosition(
-              {
-                x: canvasDragState.initX + deltaX,
-                y: canvasDragState.initY + deltaY
-              },
-              canvasDragState.halfWidthPct,
-              canvasDragState.halfHeightPct
-            )
+            // 貼紙可以拖出畫布邊緣（保留一部分在畫布內）
+            const next = applyPosition(nextPos(), getStickerBounds(canvasDragState.halfWidthPct, canvasDragState.halfHeightPct))
             st.x = next.x
             st.y = next.y
           }

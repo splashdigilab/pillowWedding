@@ -2164,11 +2164,12 @@ let resizeObserver: ResizeObserver | null = null
 
   舊行為：WebView 被壓矮 → 100dvh 變小 → canvas-container（1:1 + max-height:100%）跟著變窄
   → ResizeObserver 在鍵盤動畫期間狂噴 → 每次都寫 scalerStyle → 整個編輯器重繪十幾次，
-  畫面上就是「啪」一下被壓扁。
+  畫面上就是「啪」一下被壓扁成一小條。
 
-  新行為：高度改由 --app-h 驅動並掛上 transition；scale 只在鍵盤高度改變的當下算一次終點值
-  （鍵盤動畫期間 ResizeObserver 直接停手），中間的補間交給 CSS 的 transform transition。
-  一次鍵盤開合從十幾次 Vue 重繪降到 2～3 次。
+  現行做法：版面高度綁 --app-base-h，鍵盤彈出時完全不縮（鍵盤只是疊在上面），
+  畫布尺寸因此不變、scale 也不用重算。keyboardBusy 仍然保留：in-app browser 在
+  鍵盤動畫期間偶爾會回報中間過渡的尺寸，那段時間讓 ResizeObserver 停手，
+  等 onSettle 用靜止後的實際尺寸校正一次就好。
 */
 const canvasSectionRef = ref<HTMLElement | null>(null)
 
@@ -2191,14 +2192,8 @@ const measureCanvasSection = () => {
 }
 
 const { keyboardBusy } = useSoftKeyboard({
-  // 此刻版面還沒套用新的 --app-h，量到的是「扣掉 prev 鍵盤高度」的狀態；
-  // 把 prev 加回去得到靜止高度，再扣掉 next 就是過場的終點高度。
-  beforeApply: (next, prev) => {
-    const avail = measureCanvasSection()
-    if (!avail) return
-    setCanvasScale(Math.min(avail.w, avail.h + prev - next))
-  },
-  // 動畫跑完後用實際尺寸校正一次，修掉 beforeApply 的估算誤差
+  // 鍵盤靜止後用實際尺寸校正一次。正常情況下畫布尺寸根本沒變，setCanvasScale 會
+  // 比對 transform 字串後直接跳過，不會多一次重繪。
   onSettle: () => {
     const avail = measureCanvasSection()
     if (!avail || avail.w <= 0) return

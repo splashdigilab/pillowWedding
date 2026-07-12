@@ -34,7 +34,18 @@
       "Bash(curl -sI http://localhost:3000/system/logo.webp)",
       "Bash(curl -sI http://localhost:3000/system/lp-main.webp)",
       "Bash(kill 15182)",
-      "Bash(PORT=3100 node .output/server/index.mjs)"
+      "Bash(PORT=3100 node .output/server/index.mjs)",
+      "Bash(ls node_modules/.bin | grep -iE \"playwright|puppeteer|chrom\" ; ls /Applications | grep -i chrom)",
+      "Read(//Applications/**)",
+      "Bash(node shot.mjs __TRACKED_VAR__/canvas.png)",
+      "Bash(node shot2.mjs file://__TRACKED_VAR__/harness.html?n=16 __TRACKED_VAR__/h16.png)",
+      "Bash(node shot2.mjs file://__TRACKED_VAR__/harness.html?n=9 __TRACKED_VAR__/h09.png)",
+      "Bash(node shot2.mjs file://__TRACKED_VAR__/harness.html?n=16 __TRACKED_VAR__/h16b.png)",
+      "Bash(/bin/sleep 1)",
+      "Bash(npm i *)",
+      "Bash(git -C /Users/kevin/Documents/Github/pillowWedding status --short package.json package-lock.json)",
+      "Bash(node kb-test.mjs)",
+      "Bash(node shot.mjs)"
     ]
   }
 }

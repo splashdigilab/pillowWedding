@@ -34,6 +34,14 @@
       </div>
     </div>
 
+    <!-- ─── 中間最上方：Logo ─── -->
+    <img
+      class="p-canvas__logo"
+      src="/system/logo.webp"
+      alt="佑丞 & 子萱 2026.07.18"
+      :style="logoBoxStyle"
+    />
+
     <!-- ─── 中間上方：單張展示區 ─── -->
     <div class="p-canvas__display-zone" :style="displayBoxStyle">
       <div
@@ -93,7 +101,11 @@ const ANIM = {
 
 /* ─── URL 參數 ─── */
 const route = useRoute()
-const maxNotes   = computed(() => Number(route.query.count) || 16)
+/** 同時在畫面上的便利貼數：預設塞滿版面（左右各 8 + 中下 2），且不得超過總格數 */
+const maxNotes   = computed(() => {
+  const q = Number(route.query.count)
+  return q > 0 ? Math.min(q, SLOT_TOTAL) : SLOT_TOTAL
+})
 const displaySec = computed(() => Number(route.query.duration) || 15)
 const liveNoteScale = computed(() => Number(route.query.liveScale) || 0.95)
 const displayNoteScale = computed(() => Number(route.query.displayScale) || 0.9)
@@ -257,31 +269,58 @@ const getId = (item: any): string => item?.id ?? item?.token ?? ''
 const positionMap = reactive<Record<string, { left: number; top: number; rot: number; size: number; cellKey: string }>>({})
 
 /* ══════════════════════════════════════════════
-   版面配置：中間上方大張 display + 四周散落 live
-   （display 的位置尺寸由此計算，散落演算法會避開此保留區）
+   版面配置：中間 Logo + 大張 display，左右各 8 張、中間下方 2 張
    ══════════════════════════════════════════════ */
+
+/** 左右兩側各自的欄 / 列數（2×4 = 8 張／側） */
+const SIDE_COLS = 2
+const SIDE_ROWS = 4
+/** 中間下方張數 */
+const BOTTOM_COUNT = 2
+/** 版面總格數 = 左 8 + 右 8 + 下 2 */
+const SLOT_TOTAL = SIDE_COLS * SIDE_ROWS * 2 + BOTTOM_COUNT
+/** display 與周圍便利貼的最小間距（佔 display 邊長比例） */
+const DISPLAY_GAP_RATIO = 0.04
 
 /** 大張 display 便利貼佔螢幕高 / 寬的比例（取正方形較小邊，另乘 displayScale） */
 const DISPLAY_H_RATIO = 0.52
 const DISPLAY_W_RATIO = 0.30
-/** display 距畫面頂端的比例 */
-const DISPLAY_TOP_RATIO = 0.06
+/** display 距畫面頂端的比例（讓出上方空間給 Logo） */
+const DISPLAY_TOP_RATIO = 0.26
+
+/** 中間最上方 Logo：寬度佔舞台寬的比例、距頂端比例、原圖長寬比（寬度刻意與 display 齊寬）*/
+const LOGO_W_RATIO = 0.26
+const LOGO_TOP_RATIO = 0.06
+const LOGO_ASPECT = 2045 / 769
 /**
  * 散落區四邊留白：取舞台短邊的比例（最少 24px）。
  * 固定 px 在 4K LED 牆上等於沒有留白，便利貼會壓到 canvasBg 四角的花束與禮盒。
  */
 const SCATTER_EDGE = 24
 const SCATTER_EDGE_RATIO = 0.05
+/** 便利貼佔格子的比例：刻意小於 1，剩下的空隙就是「錯位」可以用的範圍 */
+const NOTE_FILL = 0.84
+/** 錯位幅度：用掉格子剩餘空隙的比例（<1 保留最小間距，故不會互相重疊） */
+const SCATTER_JITTER = 0.85
+/** 隨機旋轉角度總範圍（度）：實際為 ±一半 */
+const SCATTER_ROT_RANGE = 18
 
 interface Box { left: number; top: number; size: number }
-interface Rect { left: number; top: number; right: number; bottom: number }
+interface LogoBox { left: number; top: number; width: number; height: number }
 
 const displayBox = ref<Box | null>(null)
+const logoBox = ref<LogoBox | null>(null)
 
 const displayBoxStyle = computed(() => {
   const b = displayBox.value
   if (!b) return { position: 'absolute' as const, opacity: 0 }
   return { position: 'absolute' as const, left: `${b.left}px`, top: `${b.top}px`, width: `${b.size}px`, height: `${b.size}px` }
+})
+
+const logoBoxStyle = computed(() => {
+  const b = logoBox.value
+  if (!b) return { position: 'absolute' as const, opacity: 0 }
+  return { position: 'absolute' as const, left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` }
 })
 
 /** 舞台固定 16:9（置中留邊），所有版位以舞台為座標系，不能用視窗尺寸 */
@@ -297,10 +336,14 @@ function getStageSize() {
   return { W, H: W / STAGE_ASPECT }
 }
 
-/** 依舞台尺寸計算 display 大張展示區（舞台座標） */
+/** 依舞台尺寸計算 Logo 與 display 大張展示區（舞台座標） */
 function computeLayoutBoxes() {
   const { W, H } = getStageSize()
   const scale = displayNoteScale.value
+
+  const logoW = W * LOGO_W_RATIO
+  const logoH = logoW / LOGO_ASPECT
+  logoBox.value = { left: (W - logoW) / 2, top: H * LOGO_TOP_RATIO, width: logoW, height: logoH }
 
   const size = Math.min(H * DISPLAY_H_RATIO, W * DISPLAY_W_RATIO) * scale
   const left = (W - size) / 2
@@ -308,26 +351,88 @@ function computeLayoutBoxes() {
   displayBox.value = { left, top, size }
 }
 
-function rectsOverlap(al: number, at: number, ar: number, ab: number, r: Rect): boolean {
-  return al < r.right && ar > r.left && at < r.bottom && ab > r.top
+/**
+ * 由格子座標推出穩定亂數（0~1）。
+ * 用格子（而非便利貼 ID）當種子，重算 / 換人佔位時錯位都不會跳動。
+ */
+function cellNoise(row: number, col: number, salt: number): number {
+  let h = Math.imul(row + 1, 374761393) ^ Math.imul(col + 1, 668265263) ^ Math.imul(salt + 1, 2246822519)
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
 }
 
-/** 散落需避開的保留區（螢幕座標）：中央上方的大張 display 直欄 */
-function buildReservedRects(): Rect[] {
-  const rects: Rect[] = []
+interface Slot { cx: number; cy: number; key: string }
+
+/**
+ * 建立固定版位：左右兩側各 SIDE_COLS×SIDE_ROWS 張，中間 display 下方 BOTTOM_COUNT 張。
+ * 各區塊由 display / 邊界切出，天生就不會壓到 Logo 與大張展示區。
+ * 每格再依格子種子做錯位（位移不超過格內空隙的一半 → 不重疊、不出血）。
+ */
+function buildSlots(W: number, H: number): { slots: Slot[]; noteSize: number } {
   const d = displayBox.value
-  if (d) {
-    const m = d.size * 0.06
-    // 由畫面頂端一路保留到 display 底部，使中央上半保持淨空
-    rects.push({ left: d.left - m, top: 0, right: d.left + d.size + m, bottom: d.top + d.size + m })
+  if (!d) return { slots: [], noteSize: 80 }
+
+  const edge = Math.max(SCATTER_EDGE, Math.min(W, H) * SCATTER_EDGE_RATIO)
+  const gap = d.size * DISPLAY_GAP_RATIO
+
+  // 左右兩區：display 左右各一塊，寬度取兩側較窄者以維持左右對稱
+  const sideW = Math.min(d.left - gap - edge, (W - edge) - (d.left + d.size + gap))
+  const colW = sideW / SIDE_COLS
+  const rowH = (H - edge * 2) / SIDE_ROWS
+
+  // 中下區：display 底部到畫面下緣，橫向與 display 同寬
+  const bottomTop = d.top + d.size + gap
+  const bottomH = (H - edge) - bottomTop
+  const bottomColW = d.size / BOTTOM_COUNT
+
+  // 全部便利貼同尺寸：尺寸由左右格子決定；中下區只要塞得下就沿用（0.9 留給錯位），
+  // 不讓較矮的中下區把整體便利貼一起縮小
+  const base = Math.min(colW, rowH, bottomColW)
+  const noteSize = Math.max(60, Math.min(base * NOTE_FILL * liveNoteScale.value, bottomH * 0.9))
+
+  const jitter = (span: number) => Math.max(0, (span - noteSize) / 2) * SCATTER_JITTER
+  const sideJx = jitter(colW)
+  const sideJy = jitter(rowH)
+  const bottomJx = jitter(bottomColW)
+  const bottomJy = jitter(bottomH)
+
+  const slots: Slot[] = []
+
+  // 左 8 張（zone seed 0）／右 8 張（zone seed 10）
+  const sides: { start: number; seed: number; tag: string }[] = [
+    { start: edge, seed: 0, tag: 'L' },
+    { start: W - edge - sideW, seed: 10, tag: 'R' }
+  ]
+  for (const side of sides) {
+    for (let r = 0; r < SIDE_ROWS; r++) {
+      for (let c = 0; c < SIDE_COLS; c++) {
+        const seedCol = side.seed + c
+        slots.push({
+          cx: side.start + (c + 0.5) * colW + (cellNoise(r, seedCol, 1) * 2 - 1) * sideJx,
+          cy: edge + (r + 0.5) * rowH + (cellNoise(r, seedCol, 2) * 2 - 1) * sideJy,
+          key: `${side.tag}${r}-${c}`
+        })
+      }
+    }
   }
-  return rects
+
+  // 中間下方 2 張（zone seed 20）
+  const bottomCy = bottomTop + bottomH / 2
+  for (let i = 0; i < BOTTOM_COUNT; i++) {
+    slots.push({
+      cx: d.left + (i + 0.5) * bottomColW + (cellNoise(0, 20 + i, 1) * 2 - 1) * bottomJx,
+      cy: bottomCy + (cellNoise(0, 20 + i, 2) * 2 - 1) * bottomJy,
+      key: `B-${i}`
+    })
+  }
+
+  return { slots, noteSize }
 }
 
 /**
  * 為所有 liveGrid 便利貼分配落點。
- * 作法：以「最大張數」建立固定網格（尺寸、位置穩定），避開保留區後，
- * 讓現有便利貼留在原格、新便利貼取「離 display 最近的空格」，達到框住大張、位移最小。
+ * 版位固定（左 8 / 右 8 / 中下 2），讓現有便利貼留在原格、
+ * 新便利貼取「離 display 最近的空格」，達到框住大張、位移最小。
  */
 function recalcPositions() {
   const zone = liveZoneRef.value
@@ -342,56 +447,9 @@ function recalcPositions() {
   for (const id of Object.keys(positionMap)) {
     if (!items.includes(id)) delete positionMap[id]
   }
-  const count = items.length
-  if (!count) return
+  if (!items.length) return
 
-  // 以「當前張數」與「設定上限」取較大者決定網格 → 網格與便利貼尺寸固定、落點穩定
-  const gridMax = Math.max(count, maxNotes.value)
-  const reserved = buildReservedRects()
-
-  const edge = Math.max(SCATTER_EDGE, Math.min(W, H) * SCATTER_EDGE_RATIO)
-  const innerW = W - edge * 2
-  const innerH = H - edge * 2
-
-  // 由粗到細加密網格，直到可用格子數 ≥ gridMax
-  let cells: { cx: number; cy: number; key: string }[] = []
-  let noteSize = 80
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const target = gridMax + attempt * 4
-
-    // 便利貼是正方形，格子越接近正方形就能放得越大、分佈也越均勻。
-    // 直接由 sqrt(target * aspect) 取欄數，在 16:9 上會切出 5×4 這種扁格子
-    //（格寬是格高的 1.4 倍），便利貼被格高卡住而偏小、左右卻留下大縫。
-    let cols = 2
-    let rows = 2
-    let bestDev = Infinity
-    for (let c = 2; c <= target; c++) {
-      const r = Math.max(2, Math.ceil(target / c))
-      const dev = Math.abs(Math.log((innerW / c) / (innerH / r)))
-      if (dev < bestDev) {
-        bestDev = dev
-        cols = c
-        rows = r
-      }
-    }
-
-    const cellW = innerW / cols
-    const cellH = innerH / rows
-    noteSize = Math.max(60, Math.min(cellW, cellH) * 0.9 * liveNoteScale.value)
-    const half = noteSize / 2
-
-    const found: typeof cells = []
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const cx = edge + (c + 0.5) * cellW
-        const cy = edge + (r + 0.5) * cellH
-        if (reserved.some(R => rectsOverlap(cx - half, cy - half, cx + half, cy + half, R))) continue
-        found.push({ cx, cy, key: `${Math.round(cx)},${Math.round(cy)}` })
-      }
-    }
-    cells = found
-    if (cells.length >= gridMax) break
-  }
+  const { slots: cells, noteSize } = buildSlots(W, H)
   if (!cells.length) return
 
   // 離 display 中心近者優先（新便利貼會先框住大張）
@@ -422,7 +480,7 @@ function recalcPositions() {
     while (cursor < cells.length && usedKeys.has(cells[cursor]!.key)) cursor++
     const cell = cells[cursor] ?? cells[cells.length - 1]!
     usedKeys.add(cell.key)
-    const rot = positionMap[id]?.rot ?? (Math.random() - 0.5) * 12
+    const rot = positionMap[id]?.rot ?? (Math.random() - 0.5) * SCATTER_ROT_RANGE
     positionMap[id] = { left: cell.cx - noteSize / 2, top: cell.cy - noteSize / 2, rot, size: noteSize, cellKey: cell.key }
   }
 

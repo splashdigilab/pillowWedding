@@ -6,9 +6,9 @@ $editor-transition-duration: 0.3s;
 
 /*
   鍵盤過場（LINE 這類 in-app browser 會直接把 WebView 壓矮，網頁端擋不掉）。
-  高度不再綁 100dvh（瀏覽器一改就瞬間生效、沒有補間空間），改綁 JS 寫入的 --app-h，
-  才能用 transition 把那一下硬壓變成滑順的收合。
-  duration 必須小於 useSoftKeyboard 的 SETTLE_DELAY（360ms），動畫要先跑完才做校正量測。
+  版面不跟著縮，只把整塊往上平移（body 的 top ← --app-shift），讓正在打字的文字框
+  露在鍵盤上緣之上；這條 duration 就是那段平移的時間。
+  必須小於 useSoftKeyboard 的 SETTLE_DELAY（360ms），動畫要先跑完才做校正量測。
 */
 $editor-keyboard-duration: 0.28s;
 $editor-keyboard-ease: cubic-bezier(0.22, 0.61, 0.36, 1);

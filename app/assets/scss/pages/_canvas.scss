@@ -137,6 +137,16 @@ body:has(.p-canvas) {
     /* ⚠️ 不加 transition：GSAP FLIP 自行接管 */
 }
 
+/* ─── 中間最上方：Logo（位置/尺寸由 JS logoBox 以 inline style 指定）─── */
+.p-canvas__logo {
+    position: absolute;
+    object-fit: contain;
+    object-position: center;
+    z-index: 400;
+    pointer-events: none;
+    user-select: none;
+}
+
 /* ─── 中間上方：單張展示區（位置/尺寸由 JS displayBox 以 inline style 指定）─── */
 .p-canvas__display-zone {
     position: absolute;
