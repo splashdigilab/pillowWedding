@@ -4,49 +4,41 @@
 export interface StickerType {
   id: string
   defaultScale: number
-  svgFile: string // 圖檔路徑
+  /** 貼到便利貼上時用的圖：512px。烘出的圖最大 1080px，貼紙在裡面頂多佔 260px，原始的 1400px 是純浪費 */
+  svgFile: string
+  /** 選單格子用的縮圖：128px。選單一次列出全部 35 張，吃原圖等於一口氣解壓 187MB 進記憶體 */
+  thumb: string
 }
+
+/** id 形如 sticker-1_0000 / sticker_people_00，去掉結尾流水號即為資料夾名 */
+const toPaths = (id: string) => {
+  const group = id.replace(/_\d+$/, '')
+  return {
+    svgFile: `/sticker-512/${group}/${id}.webp`,
+    thumb: `/sticker-128/${group}/${id}.webp`
+  }
+}
+
+const STICKER_IDS = [
+  'sticker-1_0000', 'sticker-1_0001', 'sticker-1_0002', 'sticker-1_0003',
+  'sticker-1_0004', 'sticker-1_0005', 'sticker-1_0006', 'sticker-1_0007',
+  'sticker-1_0008', 'sticker-1_0009', 'sticker-1_0010', 'sticker-1_0011',
+  'sticker-1_0012', 'sticker-1_0013', 'sticker-1_0014',
+  'sticker_people_00', 'sticker_people_01', 'sticker_people_02', 'sticker_people_03',
+  'sticker_people_04', 'sticker_people_05', 'sticker_people_06', 'sticker_people_07',
+  'sticker_people_08', 'sticker_people_09', 'sticker_people_10', 'sticker_people_11',
+  'sticker_people_12', 'sticker_people_13', 'sticker_people_14', 'sticker_people_15',
+  'sticker_people_16', 'sticker_people_17', 'sticker_people_18', 'sticker_people_19',
+]
 
 /**
  * 預設 Sticker 庫
  */
-export const STICKER_LIBRARY: StickerType[] = [
-  { id: 'sticker-1_0000', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0000.webp' },
-  { id: 'sticker-1_0001', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0001.webp' },
-  { id: 'sticker-1_0002', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0002.webp' },
-  { id: 'sticker-1_0003', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0003.webp' },
-  { id: 'sticker-1_0004', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0004.webp' },
-  { id: 'sticker-1_0005', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0005.webp' },
-  { id: 'sticker-1_0006', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0006.webp' },
-  { id: 'sticker-1_0007', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0007.webp' },
-  { id: 'sticker-1_0008', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0008.webp' },
-  { id: 'sticker-1_0009', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0009.webp' },
-  { id: 'sticker-1_0010', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0010.webp' },
-  { id: 'sticker-1_0011', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0011.webp' },
-  { id: 'sticker-1_0012', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0012.webp' },
-  { id: 'sticker-1_0013', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0013.webp' },
-  { id: 'sticker-1_0014', defaultScale: 1, svgFile: '/sticker/sticker-1/sticker-1_0014.webp' },
-  { id: 'sticker_people_00', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_00.webp' },
-  { id: 'sticker_people_01', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_01.webp' },
-  { id: 'sticker_people_02', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_02.webp' },
-  { id: 'sticker_people_03', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_03.webp' },
-  { id: 'sticker_people_04', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_04.webp' },
-  { id: 'sticker_people_05', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_05.webp' },
-  { id: 'sticker_people_06', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_06.webp' },
-  { id: 'sticker_people_07', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_07.webp' },
-  { id: 'sticker_people_08', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_08.webp' },
-  { id: 'sticker_people_09', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_09.webp' },
-  { id: 'sticker_people_10', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_10.webp' },
-  { id: 'sticker_people_11', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_11.webp' },
-  { id: 'sticker_people_12', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_12.webp' },
-  { id: 'sticker_people_13', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_13.webp' },
-  { id: 'sticker_people_14', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_14.webp' },
-  { id: 'sticker_people_15', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_15.webp' },
-  { id: 'sticker_people_16', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_16.webp' },
-  { id: 'sticker_people_17', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_17.webp' },
-  { id: 'sticker_people_18', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_18.webp' },
-  { id: 'sticker_people_19', defaultScale: 1, svgFile: '/sticker/sticker_people/sticker_people_19.webp' },
-]
+export const STICKER_LIBRARY: StickerType[] = STICKER_IDS.map(id => ({
+  id,
+  defaultScale: 1,
+  ...toPaths(id)
+}))
 
 /**
  * 依 ID 取得 Sticker

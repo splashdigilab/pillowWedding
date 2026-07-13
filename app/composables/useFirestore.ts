@@ -53,10 +53,16 @@ export const useFirestore = () => {
   const createNote = async (form: CreateNoteForm, token?: string): Promise<string> => {
     try {
       const sanitizedStyle = removeUndefined(form.style)
+
+      // 只在真的有值時才帶上 imageUrl（Firestore 不接受 undefined）。
+      // 注意不能把整包 noteData 丟進 removeUndefined：它會遞迴進 serverTimestamp() 的哨符物件並把它重建成普通物件。
+      const optionalImage = form.imageUrl ? { imageUrl: form.imageUrl } : {}
+
       const createNoteWithToken = async (resolvedToken: string): Promise<string> => {
         const noteData = {
           content: form.content,
           style: sanitizedStyle,
+          ...optionalImage,
           token: resolvedToken,
           timestamp: serverTimestamp(),
           status: 'waiting'
@@ -94,6 +100,7 @@ export const useFirestore = () => {
         await setDoc(pendingRef, {
           content: form.content,
           style: sanitizedStyle,
+          ...optionalImage,
           token: pendingRef.id,
           timestamp: serverTimestamp(),
           status: 'waiting'
@@ -348,9 +355,13 @@ export const useFirestore = () => {
         }
 
         const pendingData = pendingSnap.data()
+
+        // 烘好的便利貼圖片一定要跟著搬進 history，否則牆上一播完就掉回 DOM 渲染
+        const bakedImageUrl = pendingData.imageUrl ?? item.imageUrl
         const historyData = {
           content: pendingData.content ?? item.content,
           style: pendingData.style ?? item.style,
+          ...(bakedImageUrl ? { imageUrl: bakedImageUrl } : {}),
           token: pendingData.token ?? token,
           timestamp: pendingData.timestamp ?? item.timestamp,
           status: 'played',

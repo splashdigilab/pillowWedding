@@ -131,6 +131,21 @@
   width: 100%;
   aspect-ratio: 1 / 1;
 
+  /*
+    已烘成單張圖的便利貼。整棵 DOM（遮罩、紙紋、貼紙、文字、手繪）都已經畫進這張圖裡，
+    所以這裡不需要 mask / mix-blend-mode / preserve-3d，只補一層陰影。
+    圖是去背的，drop-shadow 會沿著便利貼的實際輪廓打影子。
+  */
+  &__baked {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+
+    @include sticky-note-shadow;
+  }
+
   &__scaler {
     @include sticky-note-virtual-scaler(sticky-note);
     position: absolute;

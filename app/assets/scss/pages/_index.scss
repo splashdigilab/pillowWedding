@@ -169,6 +169,8 @@
     // === 效能優化 ===
     // 首頁同時顯示數十張便利貼，使用輕量單層陰影（縮小模糊半徑），兼顧視覺深度與 GPU 效能。
     // 編輯器 / 預覽頁保留完整雙層陰影（由 sticky-note-shadow mixin 提供）。
+    // __baked 是烘好的單張圖（新資料），__scaler 是完整 DOM 渲染（舊資料 / 烘圖失敗），兩者都要蓋到。
+    .c-sticky-note__baked,
     .c-sticky-note__scaler {
         filter: drop-shadow(3px 4px 6px rgba(0, 0, 0, 0.22));
     }

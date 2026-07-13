@@ -338,7 +338,7 @@
                 :class="{ 'is-active': backgroundImage === bg.url }"
                 @click="backgroundImage = bg.url"
               >
-                <img :src="bg.url" :alt="bg.id" loading="lazy" class="p-editor__background-img" />
+                <img :src="bg.thumb" :alt="bg.id" loading="lazy" class="p-editor__background-img" />
               </button>
             </div>
           </div>
@@ -426,9 +426,9 @@
               class="p-editor__sticker-btn"
               @click="addSticker(sticker.id)"
             >
-              <img 
-                v-if="sticker.svgFile"
-                :src="sticker.svgFile"
+              <img
+                v-if="sticker.thumb"
+                :src="sticker.thumb"
                 :alt="sticker.id"
                 loading="lazy"
                 class="p-editor__sticker-btn-img"
@@ -448,7 +448,7 @@
     >
       <div ref="exportNodeRef" style="width: 1080px; height: 1080px; background: transparent; display: flex; justify-content: center; align-items: center;">
         <div style="width: 100%; height: 100%; position: relative;">
-          <StickyNote :note="previewNoteData" style="position: absolute; left: 0; top: 0; transform: none; width: 100%; height: 100%;" />
+          <StickyNote :note="previewNoteData" force-render style="position: absolute; left: 0; top: 0; transform: none; width: 100%; height: 100%;" />
         </div>
       </div>
     </div>
@@ -1913,9 +1913,23 @@ const confirmSubmit = async () => {
       return
     }
 
-    // 2. 狀態正確(valid)或無法判別時，嘗試正式送出
+    // 2. 烘圖：把整張便利貼壓成一張圖並上傳，牆／大螢幕／後台之後只需要吃這張圖。
+    //    失敗會自動重試（低階手機偶爾因記憶體壓力失敗，重跑一次通常就過）。
+    const noteId = tokenForSubmit || crypto.randomUUID()
+    const exportNode = await mountExportNode()
+    const imageUrl = await bakeAndUpload(
+      exportNode,
+      previewNoteData.value?.style?.backgroundImage,
+      noteId
+    )
+
+    // 3. 手繪圖已經烘進 imageUrl 裡，不必再把 base64 塞進 Firestore 文件。
+    //    這是文件從 ~400KB 縮到 ~2KB 的原因，也讓 1MB 的單一文件上限不再是懸崖。
+    const { drawing: _bakedDrawing, ...styleForUpload } = previewNoteData.value.style
+
+    // 4. 狀態正確(valid)或無法判別時，嘗試正式送出
     await createNote(
-      { content: previewNoteData.value.content, style: previewNoteData.value.style },
+      { content: previewNoteData.value.content, style: styleForUpload, imageUrl },
       tokenForSubmit
     )
 
@@ -1957,128 +1971,45 @@ const confirmSubmit = async () => {
     }
   } finally {
     isSubmitting.value = false
+    // 烘圖用的 export node 是一份完整的便利貼 DOM（含 1254px 背景與 512px 貼紙），
+    // 送出流程一結束就卸載，不要讓它一直佔著記憶體
+    showExportNode.value = false
   }
 }
 
-import { toPng } from 'html-to-image'
+import { useNoteImage } from '~/composables/useNoteImage'
 
-// ── 字型嵌入輔助 ──────────────────────────────────────────────────────────────
-// html-to-image 若使用 skipFonts:true 不嵌入字型，輸出圖會掉回系統字體（手機最明顯）。
-// 透過 fontEmbedCSS 選項自行把字型轉成 base64 傳入，解決自架字型在 off-screen
-// export node 可能載不到的問題。全站只有 ChenYuluoyan 一支字體，同 origin，沒有 CORS 問題。
-const blobToDataURL = (blob: Blob): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
-  })
+const { renderToCanvas, bakeAndUpload } = useNoteImage()
 
-const buildFontEmbedCSS = async (): Promise<string> => {
-  try {
-    const res = await fetch('/ChenYuluoyan-2.0-Thin.woff')
-    if (!res.ok) return ''
-    const base64 = await blobToDataURL(await res.blob())
-    return `@font-face{font-family:'ChenYuluoyan';src:url('${base64}') format('woff');font-weight:normal;font-style:normal;}`
-  } catch (e) {
-    console.warn('[FontEmbed] ChenYuluoyan 失敗:', e)
-    return ''
-  }
+/** 分享用的高解析度輸出（送出上傳用的是 800px，見 useNoteImage 的 UPLOAD_IMAGE_SIZE） */
+const SHARE_IMAGE_SIZE = 1620
+
+/**
+ * 掛上 off-screen 的 export node 並等它畫完。
+ * 雙 RAF 是必要的：要讓瀏覽器真的完成 layout 與 paint，CSS mask 與背景圖才會就位。
+ */
+const mountExportNode = async (): Promise<HTMLElement> => {
+  showExportNode.value = true
+  await nextTick()
+  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+
+  if (!exportNodeRef.value) throw new Error('Export node not ready')
+  return exportNodeRef.value
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 const handleShare = async () => {
   if (isSharing.value) return
   isSharing.value = true
 
   try {
-    // 1. 掛載 export node（只在此時才建立，避免長期佔用 GPU 記憶體）
-    showExportNode.value = true
-    await nextTick()
-    // 讓瀏覽器完成 layout 與 paint（雙 RAF 確保 CSS mask 與背景圖都已渲染）
-    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-
-    if (!exportNodeRef.value) throw new Error('Export node not ready')
-
-    // 2. 強制預載背景圖片，確保瀏覽器快取中已經具備該圖，防止 html-to-image 抓不到
-    const bgUrl = previewNoteData.value?.style?.backgroundImage
-    if (bgUrl) {
-      await new Promise((resolve) => {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.onload = resolve
-        img.onerror = resolve
-        img.src = bgUrl
-      })
-    }
-
-    // 3. 強制載入 export node 內所有圖片
-    // StickyNote 的 <img> 帶有 loading="lazy" + decoding="async"，
-    // 在畫面外（-9999px）不會自動載入；必須改成 eager/sync 才能讓 html-to-image 截到完整內容。
-    const exportImgs = Array.from(exportNodeRef.value.querySelectorAll('img'))
-    for (const img of exportImgs) {
-      img.loading = 'eager'
-      img.decoding = 'sync'
-      // 若圖片尚未開始載入（src 存在但 naturalWidth=0），重設 src 觸發載入
-      if (!img.complete || img.naturalWidth === 0) {
-        const src = img.src
-        img.src = ''
-        img.src = src
-      }
-    }
-    // 等待所有圖片完成載入（含 base64 drawing 與 SVG 貼紙）
-    await Promise.all(
-      exportImgs.map(img => {
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve()
-        return new Promise<void>(resolve => {
-          img.addEventListener('load', () => resolve(), { once: true })
-          img.addEventListener('error', () => resolve(), { once: true })
-        })
-      })
+    const node = await mountExportNode()
+    const canvas = await renderToCanvas(
+      node,
+      previewNoteData.value?.style?.backgroundImage,
+      SHARE_IMAGE_SIZE
     )
 
-    // 4. 預先嵌入字型（自架 + Google Fonts 一起轉 base64）
-    // 不依賴 html-to-image 自動讀取 cssRules（跨網域會 SecurityError），改由我們主動提供。
-    const fontEmbedCSS = await buildFontEmbedCSS()
-
-    // 4b. 注入紙張材質 base64 style 到 export node
-    // ::after 偽元素的 background-image 若為相對 URL，html-to-image 在 off-screen 截圖時找不到；
-    // 改為先 fetch 成 base64，再用 <style> 標籤直接覆寫 CSS，確保紙紋被完整輸出。
-    let injectedTextureStyle: HTMLStyleElement | null = null
-    try {
-      const textureRes = await fetch('/paperTexture.webp')
-      if (textureRes.ok) {
-        const textureBase64 = await blobToDataURL(await textureRes.blob())
-        injectedTextureStyle = document.createElement('style')
-        injectedTextureStyle.textContent = `
-          .c-sticky-note__inner::after {
-            background-image: url('${textureBase64}') !important;
-          }
-        `
-        exportNodeRef.value.appendChild(injectedTextureStyle)
-      }
-    } catch (e) {
-      console.warn('[Export] 紙張材質嵌入失敗:', e)
-    }
-
-    // 5. 針對 iOS 的預熱 Hack (Warm-up)
-    // 使用低解析度預熱，強迫 html-to-image 綁定資源，但節省記憶體（pixelRatio: 0.5）
-    await toPng(exportNodeRef.value, { cacheBust: true, fontEmbedCSS, pixelRatio: 0.5 }).catch(() => {})
-
-    // 給予渲染緩衝時間
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    // 6. 正式輸出（pixelRatio 1.5：相較 2x 節省約 44% 記憶體，畫質在手機上仍充足）
-    // fontEmbedCSS 已由 buildFontEmbedCSS() 建好，html-to-image 不需自行讀取跨網域 CSS。
-    const dataUrl = await toPng(exportNodeRef.value, {
-      pixelRatio: 1.5,
-      cacheBust: true,
-      fontEmbedCSS
-    })
-
-    // 移除注入的 texture style（export node 即將卸載，這步可省略，但保持乾淨）
-    injectedTextureStyle?.remove()
-
+    const dataUrl = canvas.toDataURL('image/png')
     const blob = await (await fetch(dataUrl)).blob()
     const file = new File([blob], 'willmusic-note.png', { type: 'image/png' })
 

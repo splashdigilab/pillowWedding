@@ -86,9 +86,20 @@ export type QueueStatus = 'waiting' | 'playing' | 'played'
 export type TokenStatus = 'unused' | 'used'
 
 /**
+ * 送出時烘好的整張便利貼圖片（Firebase Storage URL）。
+ *
+ * 有這個欄位時，顯示端（牆、大螢幕、後台）只需要一個 <img> 就能畫出便利貼，
+ * 不必再載入貼紙、背景、字體並重新用 CSS 組裝——這是牆上記憶體從 286MB 降到 80MB 的關鍵。
+ * 沒有這個欄位的（舊資料、或烘圖失敗的）仍然走 StickyNote 的完整 DOM 渲染。
+ */
+interface BakedNoteImage {
+  imageUrl?: string
+}
+
+/**
  * 待處理佇列項目
  */
-export interface QueuePendingItem {
+export interface QueuePendingItem extends BakedNoteImage {
   id?: string // Firestore document ID
   content: string
   style: StickyNoteStyle
@@ -100,7 +111,7 @@ export interface QueuePendingItem {
 /**
  * 歷史紀錄項目
  */
-export interface QueueHistoryItem {
+export interface QueueHistoryItem extends BakedNoteImage {
   id?: string // Firestore document ID
   content: string
   style: StickyNoteStyle
@@ -125,6 +136,7 @@ export interface TokenDocument {
 export interface CreateNoteForm {
   content: string
   style: StickyNoteStyle
+  imageUrl?: string
 }
 
 /**

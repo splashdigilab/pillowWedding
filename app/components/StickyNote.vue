@@ -4,7 +4,20 @@
     class="c-sticky-note"
     :data-shape="note.style.shape || 'rounded'"
   >
-    <div class="c-sticky-note__scaler" :style="[scalerStyle, wrapperStyles]">
+    <!--
+      送出時已烘成單張圖的便利貼（牆、大螢幕、後台）：整棵 DOM 收斂成一個 <img>。
+      不必再載入貼紙、背景、字體，也不必逐張建遮罩／陰影／混色的離屏暫存。
+      沒有 imageUrl 的（編輯器預覽、烘圖失敗的、舊資料）自動走下面的完整渲染。
+    -->
+    <img
+      v-if="bakedImageUrl"
+      :src="bakedImageUrl"
+      :alt="note.content"
+      class="c-sticky-note__baked"
+      loading="lazy"
+      decoding="async"
+    />
+    <div v-else class="c-sticky-note__scaler" :style="[scalerStyle, wrapperStyles]">
       <div class="c-sticky-note__inner" :style="innerStyles">
       <!-- 多文字區塊：每個區塊各自位置、顏色、對齊 -->
       <template v-if="textBlocks.length">
@@ -74,13 +87,18 @@ import { useStickyNoteStyle, type StickyNoteStyleProps } from '~/composables/use
 interface Props {
   note: QueuePendingItem | QueueHistoryItem
   animate?: boolean
+  /** 編輯器的 export node 必須渲染完整 DOM（它就是烘圖的來源），不能拿烘好的圖去烘 */
+  forceRender?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  animate: false
+  animate: false,
+  forceRender: false
 })
 
 const noteRef = ref<HTMLElement | null>(null)
+
+const bakedImageUrl = computed(() => (props.forceRender ? undefined : props.note.imageUrl))
 
 const stickers = computed(() => {
   return props.note.style?.stickers || []

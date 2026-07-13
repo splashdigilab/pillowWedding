@@ -323,7 +323,7 @@ const playReflowSequence = async () => {
 
       gsap.to(element, {
         ...target,
-        duration: firstRender ? 1.2 + Math.random() * 0.5 : 1.0 + Math.random() * 0.4,
+        duration: firstRender ? 2.2 + Math.random() * 0.5 : 2.0 + Math.random() * 0.4,
         ease: 'power3.out',
         // 首次載入才做階梯式延遲（上限 1.5s 避免 iOS 負擔）；之後的新便利貼要馬上飛進來
         delay: firstRender ? Math.min(index * 0.05, 1.5) : Math.random() * 0.1

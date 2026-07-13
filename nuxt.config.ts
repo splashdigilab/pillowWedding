@@ -40,7 +40,7 @@ export default defineNuxtConfig({
       ],
       link: [
         // 全站只用自架的 ChenYuluoyan（見 assets/scss/base/_global.scss），不再拉 Google Fonts
-        { rel: 'preload', href: '/ChenYuluoyan-2.0-Thin.woff', as: 'font', type: 'font/woff', crossorigin: '' }
+        { rel: 'preload', href: '/ChenYuluoyan-2.0-Thin.woff2', as: 'font', type: 'font/woff2', crossorigin: '' }
       ],
       ...(gtmId ? {
         script: [

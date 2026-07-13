@@ -6,8 +6,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Firebase auth plugin 是 client-only，SSR 階段不做登入判斷，避免刷新時被誤導向 /login
   if (process.server) return
 
-  // 只保護特定頁面
-  const protectedPaths = ['/qrcode', '/canvas', '/admin']
+  // 只保護特定頁面（/migrate 會刪除資料，一定要擋在登入後面）
+  const protectedPaths = ['/qrcode', '/canvas', '/admin', '/migrate']
   if (!protectedPaths.includes(to.path)) return
 
   const { loggedIn, ensureInitialized } = useAdminAuth()

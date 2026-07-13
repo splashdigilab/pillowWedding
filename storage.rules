@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// 便利貼烘好的整張圖片。牆、大螢幕、後台都只吃這個 bucket 裡的圖。
+//
+// 部署：firebase deploy --only storage
+// 或到 Firebase Console → Storage → Rules 貼上。
+// ⚠️ 這份規則沒部署的話，送出便利貼時上傳會被拒絕（permission-denied）。
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /notes/{fileName} {
+      // 便利貼牆是公開的，任何人都要能讀
+      allow read: if true;
+
+      // 只允許建立新檔案，不允許覆寫既有檔案——否則任何人都能蓋掉別人的便利貼。
+      // （上傳端每次都用全新的隨機路徑，所以重試不會撞到這條規則，見 useNoteImage.uploadNoteImage）
+      //
+      // 便利貼是不規則形狀，必須保留透明度，因此只收 webp / png，不收 jpeg。
+      // 上限抓 5MB：正常的 800px WebP 只有幾十 KB，但 WebP 不支援時會退回 PNG，
+      // 筆畫多的便利貼可能到 1～2MB，抓太緊會讓那些人送不出去。
+      allow create: if resource == null
+                    && request.resource.size < 5 * 1024 * 1024
+                    && request.resource.contentType.matches('image/(webp|png)');
+
+      allow update, delete: if false;
+    }
+
+    // 其他路徑一律封死
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
