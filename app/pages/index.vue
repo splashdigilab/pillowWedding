@@ -391,22 +391,16 @@ const appendItemsInBatches = async (
 }
 
 /**
- * 後續快照：只做增量更新，不整份重建。
- * 已經在牆上的便利貼保持原本的順序（＝原本的螺旋位置），新的接在最後面，
- * 這樣既有的貼紙不會因為重新洗牌而整面跳動；長度一變，watcher 會播放飛入動畫。
+ * 後續快照：直接沿用 Firestore 的 playedAt desc 順序。
+ * 螺旋位置是照陣列索引算的（索引 0 = 正中心），所以「維持新到舊」＝越新的越靠中心：
+ * 新便利貼進來時佔走索引 0，既有的便利貼整批往後推一格，flow 到下一個螺旋位置。
+ * 每張的傾斜角綁在 id 上（見 getRotation），推移時不會連角度一起跳。
  */
 const syncItems = (items: QueueHistoryItem[]) => {
-  const incoming = new Set(items.map(itemKey))
-
-  // 被刪掉的先移除
-  const kept = displayItems.value.filter(item => incoming.has(itemKey(item)))
-  const keptKeys = new Set(kept.map(itemKey))
-
-  // 新出現的接在後面
-  const fresh = items.filter(item => !keptKeys.has(itemKey(item)))
-
-  if (fresh.length === 0 && kept.length === displayItems.value.length) return
-  displayItems.value = [...kept, ...fresh]
+  const nextKeys = items.map(itemKey).join('|')
+  const currentKeys = displayItems.value.map(itemKey).join('|')
+  if (nextKeys === currentKeys) return
+  displayItems.value = [...items]
 }
 
 onMounted(async () => {
