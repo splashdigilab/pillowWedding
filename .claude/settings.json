@@ -56,7 +56,9 @@
       "Bash(npx --yes cn-font-split@latest run -i /Users/kevin/Documents/Github/pillowWedding/public/ChenYuluoyan-2.0-Thin.woff2 -o ./fontout12 -c 12000 -m 1500 --css.fontFamily ChenYuluoyan --testHtml false -r false)",
       "Bash(npm uninstall *)",
       "Bash(node bake.spec.mjs)",
-      "Bash(npm pkg *)"
+      "Bash(npm pkg *)",
+      "Bash(node wall.mjs)",
+      "Bash(git check-ignore *)"
     ]
   }
 }

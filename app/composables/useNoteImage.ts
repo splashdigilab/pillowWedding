@@ -30,6 +30,8 @@ type FontChunk = [string, string]
 let fontManifest: Promise<FontChunk[]> | null = null
 /** 分包 → base64 data URI。同一次送出會烘圖多次（預熱、重試），不重抓 */
 const fontChunkCache = new Map<string, string>()
+/** 紙紋 base64，只轉一次 */
+let paperTexture: Promise<string> | null = null
 
 const blobToDataURL = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -225,12 +227,18 @@ export const useNoteImage = () => {
   /**
    * 紙紋是 ::after 偽元素的 background-image。相對 URL 在 off-screen 截圖時找不到，
    * 必須先轉成 base64 再用 <style> 覆寫回去。
+   *
+   * 84KB 的圖轉 base64 不便宜，而一次送出會烘圖多次（預熱＋最多三次重試），所以只做一次。
    */
   const injectPaperTexture = async (node: HTMLElement): Promise<HTMLStyleElement | null> => {
     try {
-      const res = await fetch('/paperTexture.webp')
-      if (!res.ok) return null
-      const base64 = await blobToDataURL(await res.blob())
+      paperTexture ??= fetch('/paperTexture.webp')
+        .then(res => {
+          if (!res.ok) throw new Error(`paperTexture ${res.status}`)
+          return res.blob()
+        })
+        .then(blobToDataURL)
+      const base64 = await paperTexture
       const style = document.createElement('style')
       style.textContent = `.c-sticky-note__inner::after{background-image:url('${base64}') !important;}`
       node.appendChild(style)
@@ -269,22 +277,25 @@ export const useNoteImage = () => {
     bgUrl: string | undefined,
     outputSize: number
   ): Promise<HTMLCanvasElement> => {
-    await preloadBackground(bgUrl)
-    await forceLoadImages(node)
-    await flattenMask(node)
-
-    const fontEmbedCSS = await buildFontEmbedCSS(node.textContent || '')
-    const textureStyle = await injectPaperTexture(node)
+    // 這幾步彼此不相干（載圖、壓遮罩、抓字體分包、抓紙紋），沒有理由排隊等
+    const [, , , fontEmbedCSS, textureStyle] = await Promise.all([
+      preloadBackground(bgUrl),
+      forceLoadImages(node),
+      flattenMask(node),
+      buildFontEmbedCSS(node.textContent || ''),
+      injectPaperTexture(node)
+    ])
 
     try {
       // iOS 預熱：先用低解析度跑一次，強迫 html-to-image 綁定所有資源。
       // 少了這一步，iOS 上第一次的正式輸出常常是空白或缺圖。
-      await toCanvas(node, { cacheBust: true, fontEmbedCSS, pixelRatio: 0.5 }).catch(() => {})
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // 不開 cacheBust：素材全是同 origin 又設了 immutable 快取，cacheBust 只會讓每張圖
+      // 都繞過瀏覽器快取重抓一次（手機網路上這就是好幾百毫秒）。
+      await toCanvas(node, { fontEmbedCSS, pixelRatio: 0.5 }).catch(() => {})
+      await new Promise(resolve => setTimeout(resolve, 150))
 
       const canvas = await toCanvas(node, {
         pixelRatio: outputSize / EXPORT_NODE_SIZE,
-        cacheBust: true,
         fontEmbedCSS
       })
 
@@ -295,6 +306,18 @@ export const useNoteImage = () => {
     } finally {
       textureStyle?.remove()
     }
+  }
+
+  /**
+   * 先把烘圖要用的素材抓下來（字體分包、紙紋、背景圖），結果進快取，之後烘圖直接用。
+   *
+   * 在使用者按下「送出」之前呼叫（例如確認視窗一跳出來），這些網路來回就會發生在他讀
+   * 對話框的那幾秒裡，而不是他盯著轉圈圈的時候。抓失敗不要緊，烘圖時會自己再抓一次。
+   */
+  const prefetchBakeAssets = (text: string, bgUrl?: string) => {
+    void buildFontEmbedCSS(text).catch(() => {})
+    void injectPaperTexture(document.createElement('div')).catch(() => {})
+    void preloadBackground(bgUrl)
   }
 
   /**
@@ -373,6 +396,7 @@ export const useNoteImage = () => {
 
   return {
     buildFontEmbedCSS,
+    prefetchBakeAssets,
     renderToCanvas,
     renderToUploadBlob,
     uploadNoteImage,

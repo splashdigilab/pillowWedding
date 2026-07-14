@@ -320,6 +320,19 @@ const ARC_RATIO = 0.15
 const ARC_MID_RATIO = 0.06
 /** 中下兩張往中央靠攏的距離（便利貼邊長比例）：讓出空間給上方弧線的下緣那張 */
 const BOTTOM_INWARD_RATIO = 0.065
+/**
+ * 中下兩張往上提的距離（便利貼邊長比例）。
+ *
+ * 為什麼要提：這兩張原本是在「display 下緣 → 畫面底部」這條帶子裡置中，左右兩側的底排卻是
+ * 在自己的格線裡置中——兩套算法，落點自然對不齊，中間這兩張看起來就比兩側低一截。
+ *
+ * 但便利貼的大小本來就被這條帶子的高度撐滿（noteSize 有 bottomH*0.95 的上限），帶子裡幾乎
+ * 沒有空隙可以往上挪。所以往上提一定會吃掉 display 下方那段留白（gap）——BOTTOM_RAISE_MAX_GAP
+ * 決定最多能吃掉多少，剩下的留白確保便利貼不會貼到大張展示區上。
+ */
+const BOTTOM_RAISE_RATIO = 0.15
+/** 往上提時最多吃掉 display 下方留白的比例 */
+const BOTTOM_RAISE_MAX_GAP = 0.6
 /** 隨機旋轉角度總範圍（度）：實際為 ±一半 */
 const SCATTER_ROT_RANGE = 18
 
@@ -446,7 +459,14 @@ function buildSlots(W: number, H: number): { slots: Slot[]; noteSize: number } {
   }
 
   // 中間下方 2 張（zone seed 20）
-  const bottomCy = bottomTop + bottomH / 2
+  // 往上提，好跟左右兩側的底排看齊。可提的空間 = 帶子裡的餘裕（扣掉留給 jitter 的部分）
+  // ＋ 允許吃掉的那部分 display 下方留白。
+  const bottomSlack = Math.max(0, ((bottomH - noteSize) / 2) * (1 - SCATTER_JITTER))
+  const bottomRaise = Math.min(
+    noteSize * BOTTOM_RAISE_RATIO,
+    bottomSlack + gap * BOTTOM_RAISE_MAX_GAP
+  )
+  const bottomCy = bottomTop + bottomH / 2 - bottomRaise
   const bottomLeft = (W - bottomSpan) / 2
   for (let i = 0; i < BOTTOM_COUNT; i++) {
     // 往中央靠攏，把外側空間讓給內側欄下緣那張的弧線位移

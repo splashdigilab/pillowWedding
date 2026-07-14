@@ -88,11 +88,13 @@ import { gsap } from 'gsap'
 import type { QueuePendingItem, QueueHistoryItem } from '~/types'
 import { useFirestore } from '~/composables/useFirestore'
 import { usePanZoom, type PanZoomBounds } from '~/composables/usePanZoom'
+import { useNotePreload } from '~/composables/useNotePreload'
 import StickyNote from '~/components/StickyNote.vue'
 
 definePageMeta({ layout: false, ssr: false })
 
 const { listenToHistory } = useFirestore()
+const { waitForNoteImages } = useNotePreload()
 let unsubscribeHistory: (() => void) | null = null
 
 // ====== UI Refs ======
@@ -299,6 +301,11 @@ const playReflowSequence = async () => {
 
     calculatePositions(displayItems.value.length)
     const firstRender = isFirstRender
+
+    // 便利貼在 CSS 預設是 opacity:0，動畫沒跑之前是看不見的——所以這裡等圖是安全的：
+    // 使用者不會看到「空殼先飛進來、圖片後補」，只會看到便利貼晚一點點出現，但一出現就是完整的。
+    // 有 timeout，圖抓不到也不會讓整面牆停住。
+    await waitForNoteImages(displayItems.value)
 
     displayItems.value.forEach((item, index) => {
       const element = nodeById.get(itemKey(item))

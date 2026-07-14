@@ -1635,6 +1635,13 @@ const openSubmitModal = () => {
   }
 
   showSubmitModal.value = true
+
+  // 確認視窗開著的這幾秒，先把烘圖要用的素材（字體分包、紙紋、背景）抓下來。
+  // 使用者按下「確定」時它們已經在快取裡，省掉整段網路等待。
+  prefetchBakeAssets(
+    previewNoteData.value?.content || '',
+    previewNoteData.value?.style?.backgroundImage
+  )
 }
 
 const previewNoteData = computed(() => {
@@ -1979,7 +1986,7 @@ const confirmSubmit = async () => {
 
 import { useNoteImage } from '~/composables/useNoteImage'
 
-const { renderToCanvas, bakeAndUpload } = useNoteImage()
+const { renderToCanvas, bakeAndUpload, prefetchBakeAssets } = useNoteImage()
 
 /** 分享用的高解析度輸出（送出上傳用的是 800px，見 useNoteImage 的 UPLOAD_IMAGE_SIZE） */
 const SHARE_IMAGE_SIZE = 1620

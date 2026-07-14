@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore'
 import { useNuxtApp } from '#app'
 import { useFirestore } from '~/composables/useFirestore'
+import { useNotePreload } from '~/composables/useNotePreload'
 import type {
     QueuePendingItem, QueueHistoryItem, CurrentStateData
 } from '~/types'
@@ -256,6 +257,7 @@ export function useConductor() {
     const { $firestore } = useNuxtApp()
     const db = $firestore as any
     const { moveToHistory } = useFirestore()
+    const { prefetchNoteImages } = useNotePreload()
     const s = getSingleton()
 
     // 給手機端用的 ref
@@ -296,6 +298,8 @@ export function useConductor() {
                         s.liveGrid = snapshot.docs.map(
                             d => ({ id: d.id, ...d.data() } as QueueHistoryItem)
                         )
+                        // 左邊那一整面 grid 馬上就要畫出來，圖先抓
+                        prefetchNoteImages(s.liveGrid)
                         // 初次載入後同步 idle bag（避免第一次 idle 隨機重複）
                         const liveIds = s.liveGrid.map(n => noteId(n)).filter(Boolean)
                         const cooldownTurns = clampInt(3, Math.floor(s.gridMax * 0.5), 8)
@@ -393,6 +397,11 @@ export function useConductor() {
             s.queuePending = snap.docs
                 .map(d => ({ id: d.id, ...d.data() } as QueuePendingItem))
                 .filter(q => !s.completedIds.has(noteId(q)))
+
+            // 排隊中的便利貼至少還有一個 loop 才會上場（通常更久），現在就把圖抓好。
+            // 不預抓的話，圖是等它進 DOM 才開始載——那時 Flip 動畫已經在飛了，
+            // 便利貼會先以空殼飛到定位，圖再補上來。
+            prefetchNoteImages(s.queuePending)
 
             if (nowPlayingRemoved) {
                 s.nowPlaying = null
