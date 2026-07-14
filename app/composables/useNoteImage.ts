@@ -76,7 +76,10 @@ export const useNoteImage = () => {
     const codes = new Set(
       Array.from(text)
         .map(ch => ch.codePointAt(0)!)
-        .filter(code => code > 0x20)
+        // 半形空白（U+0020）也要算進來：它在 ChenYuluoyan 裡只有 0.195em，掉回系統字體會變成
+        // 0.25em 以上。而 html-to-image 會把 max-content 量到的寬度凍結成固定 px（零餘裕），
+        // 每個空白多出來的那 1~2px 會直接把整行擠到下一行——編輯器沒斷行，牆上卻斷了。
+        .filter(code => code >= 0x20)
     )
     if (!codes.size) return ''
 
