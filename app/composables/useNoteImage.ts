@@ -64,6 +64,14 @@ export const useNoteImage = () => {
    * 改成只挑用到的分包後，實測 45 字的便利貼約 320KB，小了二十倍。
    * 分包檔由 scripts/split-font.mjs 產生。
    */
+  const loadFontManifest = (): Promise<FontChunk[]> => {
+    fontManifest ??= fetch(`${FONT_CHUNK_DIR}/manifest.json`).then(res => {
+      if (!res.ok) throw new Error(`manifest ${res.status}`)
+      return res.json() as Promise<FontChunk[]>
+    })
+    return fontManifest
+  }
+
   const buildFontEmbedCSS = async (text: string): Promise<string> => {
     const codes = new Set(
       Array.from(text)
@@ -73,11 +81,7 @@ export const useNoteImage = () => {
     if (!codes.size) return ''
 
     try {
-      fontManifest ??= fetch(`${FONT_CHUNK_DIR}/manifest.json`).then(res => {
-        if (!res.ok) throw new Error(`manifest ${res.status}`)
-        return res.json() as Promise<FontChunk[]>
-      })
-      const manifest = await fontManifest
+      const manifest = await loadFontManifest()
 
       const needed = manifest.filter(([, ranges]) =>
         Array.from(codes).some(code => rangeCovers(ranges, code))
@@ -250,6 +254,21 @@ export const useNoteImage = () => {
   }
 
   /**
+   * export node 的前置準備：載圖 + 壓遮罩。手機上這兩件事要 0.5～1.1 秒。
+   *
+   * 可以（也應該）在使用者按下送出之前就先做完——確認視窗一跳出來，便利貼的內容就定案了，
+   * 沒有理由等他按確定才開始載圖。編輯器會在開視窗時先叫一次，烘圖時再叫一次：
+   * 第二次幾乎不花時間，因為圖已經 complete、遮罩已經被壓成單層（flattenMask 會直接跳過）。
+   */
+  const warmExportNode = async (node: HTMLElement, bgUrl?: string) => {
+    await Promise.all([
+      preloadBackground(bgUrl),
+      forceLoadImages(node),
+      flattenMask(node)
+    ])
+  }
+
+  /**
    * 輸出是不是一張全透明的圖。
    *
    * 手機上 html-to-image 失敗的方式不是丟例外，而是安靜地畫出空白：SVG 太大時 <img> 照樣
@@ -278,22 +297,20 @@ export const useNoteImage = () => {
     outputSize: number
   ): Promise<HTMLCanvasElement> => {
     // 這幾步彼此不相干（載圖、壓遮罩、抓字體分包、抓紙紋），沒有理由排隊等
-    const [, , , fontEmbedCSS, textureStyle] = await Promise.all([
-      preloadBackground(bgUrl),
-      forceLoadImages(node),
-      flattenMask(node),
+    const [, fontEmbedCSS, textureStyle] = await Promise.all([
+      warmExportNode(node, bgUrl),
       buildFontEmbedCSS(node.textContent || ''),
       injectPaperTexture(node)
     ])
 
     try {
-      // iOS 預熱：先用低解析度跑一次，強迫 html-to-image 綁定所有資源。
-      // 少了這一步，iOS 上第一次的正式輸出常常是空白或缺圖。
       // 不開 cacheBust：素材全是同 origin 又設了 immutable 快取，cacheBust 只會讓每張圖
       // 都繞過瀏覽器快取重抓一次（手機網路上這就是好幾百毫秒）。
-      await toCanvas(node, { fontEmbedCSS, pixelRatio: 0.5 }).catch(() => {})
-      await new Promise(resolve => setTimeout(resolve, 150))
-
+      //
+      // 這裡原本會先用低解析度「暖機」跑一次 toCanvas，理由是 iOS 第一次輸出常常空白或缺圖。
+      // 拿掉的原因：那個空白的真正成因是整支 4.6MB 字體撐爆 SVG（見 buildFontEmbedCSS），
+      // 已經修掉了；而萬一還是輸出空白，下面的 isCanvasBlank 會擋下來、由 bakeAndUpload 重試，
+      // 那次重試本身就等於暖機——換句話說，最壞情況跟以前一樣慢，正常情況直接省下一整趟。
       const canvas = await toCanvas(node, {
         pixelRatio: outputSize / EXPORT_NODE_SIZE,
         fontEmbedCSS
@@ -311,10 +328,15 @@ export const useNoteImage = () => {
   /**
    * 先把烘圖要用的素材抓下來（字體分包、紙紋、背景圖），結果進快取，之後烘圖直接用。
    *
-   * 在使用者按下「送出」之前呼叫（例如確認視窗一跳出來），這些網路來回就會發生在他讀
-   * 對話框的那幾秒裡，而不是他盯著轉圈圈的時候。抓失敗不要緊，烘圖時會自己再抓一次。
+   * 這是「上傳很慢」的主要解法，不是小優化：實測手機上烘圖的時間有一半到三分之二是卡在
+   * 抓字體分包（中階手機 1.0 秒、低階 2.4 秒）。但便利貼的文字在使用者打字的當下就已經知道了，
+   * 沒有理由等到他按下送出才開始抓。編輯器會在打字停下來時呼叫這裡，等他真的送出時，
+   * 分包早就躺在快取裡，這段時間直接歸零。
+   *
+   * 抓失敗不要緊，烘圖時會自己再抓一次。
    */
   const prefetchBakeAssets = (text: string, bgUrl?: string) => {
+    void loadFontManifest().catch(() => { fontManifest = null })
     void buildFontEmbedCSS(text).catch(() => {})
     void injectPaperTexture(document.createElement('div')).catch(() => {})
     void preloadBackground(bgUrl)
@@ -397,6 +419,7 @@ export const useNoteImage = () => {
   return {
     buildFontEmbedCSS,
     prefetchBakeAssets,
+    warmExportNode,
     renderToCanvas,
     renderToUploadBlob,
     uploadNoteImage,

@@ -91,7 +91,7 @@
       message="請確認您的便利貼樣貌，上傳後將無法修改。"
       :loading="isSubmitting"
       @confirm="confirmSubmit"
-      @cancel="showSubmitModal = false"
+      @cancel="cancelSubmit"
     >
       <template #preview>
         <StickyNote v-if="previewNoteData" :note="previewNoteData" />
@@ -551,7 +551,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import type { StickerInstance, DraftData, StickyNoteStyle, TextBlockInstance } from '~/types'
 import { getStickerById, STICKER_LIBRARY } from '~/data/stickers'
 import { BACKGROUND_IMAGES } from '~/data/backgrounds'
@@ -1636,12 +1636,22 @@ const openSubmitModal = () => {
 
   showSubmitModal.value = true
 
-  // 確認視窗開著的這幾秒，先把烘圖要用的素材（字體分包、紙紋、背景）抓下來。
-  // 使用者按下「確定」時它們已經在快取裡，省掉整段網路等待。
+  // 確認視窗一開，便利貼的內容就定案了——把烘圖的準備工作全部搬到這裡做完，
+  // 使用者在讀「確定要上傳嗎」的那幾秒，素材已經抓好、export node 的圖也載好、遮罩也壓好了。
+  // 他按下確定時只剩下真正的烘圖（toCanvas）與上傳。
   prefetchBakeAssets(
     previewNoteData.value?.content || '',
     previewNoteData.value?.style?.backgroundImage
   )
+  void mountExportNode()
+    .then(node => warmExportNode(node, previewNoteData.value?.style?.backgroundImage))
+    .catch(e => console.warn('[Editor] export node 預熱失敗（不影響送出）:', e))
+}
+
+/** 取消送出：順手把預熱用的 export node 卸掉，它是一整棵便利貼 DOM，不要讓它一直佔著記憶體 */
+const cancelSubmit = () => {
+  showSubmitModal.value = false
+  showExportNode.value = false
 }
 
 const previewNoteData = computed(() => {
@@ -1664,6 +1674,28 @@ const previewNoteData = computed(() => {
     timestamp: Date.now(),
     status: 'waiting'
   } as any
+})
+
+/**
+ * 邊打字邊把烘圖要用的素材抓好。
+ *
+ * 上傳慢的最大單一原因就是烘圖時才去抓字體分包（手機上要 1～2.4 秒）。但這張便利貼會用到
+ * 哪些字，打字的當下就知道了——所以打字一停就先抓，按下送出時分包已經在快取裡。
+ * 抓過的分包不會重抓（useNoteImage 內有快取），所以邊打邊抓的成本只有「新出現的字」那幾包。
+ */
+let prefetchTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => [previewNoteData.value?.content, backgroundImage.value] as const,
+  ([text, bg]) => {
+    if (prefetchTimer) clearTimeout(prefetchTimer)
+    // 打字停下來再抓，不要每一個字都送一輪請求
+    prefetchTimer = setTimeout(() => prefetchBakeAssets(text || '', bg), 700)
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  if (prefetchTimer) clearTimeout(prefetchTimer)
 })
 
 const toRadians = (deg: number) => deg * (Math.PI / 180)
@@ -1986,7 +2018,7 @@ const confirmSubmit = async () => {
 
 import { useNoteImage } from '~/composables/useNoteImage'
 
-const { renderToCanvas, bakeAndUpload, prefetchBakeAssets } = useNoteImage()
+const { renderToCanvas, bakeAndUpload, prefetchBakeAssets, warmExportNode } = useNoteImage()
 
 /** 分享用的高解析度輸出（送出上傳用的是 800px，見 useNoteImage 的 UPLOAD_IMAGE_SIZE） */
 const SHARE_IMAGE_SIZE = 1620
