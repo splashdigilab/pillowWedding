@@ -13,7 +13,7 @@
  * isCanvasBlank 這關，否則空白便利貼會一路上傳到牆上（實際發生過，成因是整支字體太大）。
  */
 import { toCanvas } from 'html-to-image'
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 
 /** export node 的實際尺寸，pixelRatio 以此為基準換算 */
 const EXPORT_NODE_SIZE = 1080
@@ -26,6 +26,14 @@ const FONT_CHUNK_DIR = '/fonts/chenyuluoyan'
 
 /** [檔名（不含副檔名）, "4e00-4e05,4e2d"] */
 type FontChunk = [string, string]
+
+/**
+ * bakeAndUpload 回報的進度。
+ * 烘圖沒有內部進度可讀（toCanvas 不給），所以只能說「開始烘了」；上傳則有真實的位元組比例。
+ */
+export type BakeProgress =
+  | { phase: 'bake' }
+  | { phase: 'upload'; fraction: number }
 
 let fontManifest: Promise<FontChunk[]> | null = null
 /** 分包 → base64 data URI。同一次送出會烘圖多次（預熱、重試），不重抓 */
@@ -376,15 +384,35 @@ export const useNoteImage = () => {
    * 便利貼一旦送出就不會再變，設 immutable 讓瀏覽器與 CDN 永久快取——
    * 牆上的重複造訪因此可以一個 byte 都不用重新下載。
    */
-  const uploadNoteImage = async (blob: Blob, noteId: string): Promise<string> => {
+  const uploadNoteImage = async (
+    blob: Blob,
+    noteId: string,
+    onProgress?: (fraction: number) => void
+  ): Promise<string> => {
     const { $storage } = useNuxtApp()
     const ext = blob.type === 'image/webp' ? 'webp' : 'png'
     const suffix = crypto.randomUUID().slice(0, 8)
     const fileRef = storageRef($storage as any, `notes/${noteId}-${suffix}.${ext}`)
 
-    await uploadBytes(fileRef, blob, {
+    // uploadBytesResumable 而不是 uploadBytes：只有前者會回報 bytesTransferred，進度條才有真實
+    // 數字可讀。代價是多一趟開 session 的 round trip（便利貼圖只有一兩百 KB，本來一趟就送完），
+    // 換掉「使用者盯著沒有反應的畫面」是划算的。
+    const task = uploadBytesResumable(fileRef, blob, {
       contentType: blob.type,
       cacheControl: 'public, max-age=31536000, immutable'
+    })
+
+    await new Promise<void>((resolve, reject) => {
+      task.on(
+        'state_changed',
+        snapshot => {
+          if (snapshot.totalBytes > 0) {
+            onProgress?.(snapshot.bytesTransferred / snapshot.totalBytes)
+          }
+        },
+        reject,
+        resolve
+      )
     })
 
     return await getDownloadURL(fileRef)
@@ -393,19 +421,28 @@ export const useNoteImage = () => {
   /**
    * 烘圖 + 上傳，失敗自動重試。
    * 烘圖在低階手機上偶爾會因為記憶體壓力失敗，重跑一次通常就過了，所以不要一次失敗就放棄。
+   *
+   * onProgress 只說「現在在烘圖」或「上傳到幾成」，不換算成整體百分比——整條送出流程還有
+   * GPS 驗證與 Firestore 寫入，那個加權是呼叫端（編輯器）的事，見 useSubmitProgress。
    */
   const bakeAndUpload = async (
     node: HTMLElement,
     bgUrl: string | undefined,
     noteId: string,
-    attempts = 3
+    options: { attempts?: number; onProgress?: (progress: BakeProgress) => void } = {}
   ): Promise<string> => {
+    const { attempts = 3, onProgress } = options
     let lastError: unknown
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
+        onProgress?.({ phase: 'bake' })
         const blob = await renderToUploadBlob(node, bgUrl)
-        return await uploadNoteImage(blob, noteId)
+
+        onProgress?.({ phase: 'upload', fraction: 0 })
+        return await uploadNoteImage(blob, noteId, fraction =>
+          onProgress?.({ phase: 'upload', fraction })
+        )
       } catch (e) {
         lastError = e
         console.warn(`[NoteImage] 第 ${attempt}/${attempts} 次烘圖上傳失敗:`, e)

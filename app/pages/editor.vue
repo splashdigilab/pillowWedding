@@ -90,6 +90,9 @@
       title="確認上傳"
       message="請確認您的便利貼樣貌，上傳後將無法修改。"
       :loading="isSubmitting"
+      :progress="submitPercent"
+      :progress-label="submitLabel"
+      loading-text="上傳中..."
       @confirm="confirmSubmit"
       @cancel="cancelSubmit"
     >
@@ -1609,6 +1612,17 @@ const handleDraftDecision = async (useDraft: boolean) => {
 
 const isSubmitting = ref(false)
 
+/** 送出時的進度條（階段加權，見 useSubmitProgress） */
+const {
+  percent: submitPercent,
+  label: submitLabel,
+  start: startSubmitProgress,
+  setPhase: setSubmitPhase,
+  setPhaseFraction: setSubmitPhaseFraction,
+  finish: finishSubmitProgress,
+  stop: stopSubmitProgress
+} = useSubmitProgress()
+
 const openSubmitModal = () => {
   const hasContent = textBlocks.value.some(b => b.content.trim())
   if (!hasContent) {
@@ -1871,6 +1885,7 @@ const confirmSubmit = async () => {
   }
 
   isSubmitting.value = true
+  startSubmitProgress()
 
   try {
     const { createNote, checkTokenStatus } = useFirestore()
@@ -1959,7 +1974,17 @@ const confirmSubmit = async () => {
     const imageUrl = await bakeAndUpload(
       exportNode,
       previewNoteData.value?.style?.backgroundImage,
-      noteId
+      noteId,
+      {
+        onProgress: progress => {
+          if (progress.phase === 'bake') {
+            setSubmitPhase('bake')
+          } else {
+            setSubmitPhase('upload')
+            setSubmitPhaseFraction(progress.fraction)
+          }
+        }
+      }
     )
 
     // 3. 手繪圖已經烘進 imageUrl 裡，不必再把 base64 塞進 Firestore 文件。
@@ -1967,10 +1992,12 @@ const confirmSubmit = async () => {
     const { drawing: _bakedDrawing, ...styleForUpload } = previewNoteData.value.style
 
     // 4. 狀態正確(valid)或無法判別時，嘗試正式送出
+    setSubmitPhase('save')
     await createNote(
       { content: previewNoteData.value.content, style: styleForUpload, imageUrl },
       tokenForSubmit
     )
+    finishSubmitProgress()
 
     // 上傳成功：清除草稿與快取的 Token
     clearDraft()
@@ -2010,6 +2037,8 @@ const confirmSubmit = async () => {
     }
   } finally {
     isSubmitting.value = false
+    // 不管走哪條路（成功、GPS 擋下、Token 失效、烘圖三次都失敗），進度條的計時器都要停掉
+    stopSubmitProgress()
     // 烘圖用的 export node 是一份完整的便利貼 DOM（含 1254px 背景與 512px 貼紙），
     // 送出流程一結束就卸載，不要讓它一直佔著記憶體
     showExportNode.value = false
@@ -2017,6 +2046,7 @@ const confirmSubmit = async () => {
 }
 
 import { useNoteImage } from '~/composables/useNoteImage'
+import { useSubmitProgress } from '~/composables/useSubmitProgress'
 
 const { renderToCanvas, bakeAndUpload, prefetchBakeAssets, warmExportNode } = useNoteImage()
 

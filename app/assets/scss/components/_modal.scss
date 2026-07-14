@@ -67,6 +67,38 @@
         }
     }
 
+    &__progress {
+        margin-bottom: 1.5rem;
+    }
+
+    &__progress-track {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    &__progress-bar {
+        height: 100%;
+        background: var.$selected-color;
+        transform: scaleX(0);
+        transform-origin: left center;
+
+        /*
+          用 transform 而不是 width：烘圖（toCanvas）會把主執行緒吃滿好幾秒，width 的 transition
+          每一格都要重跑 layout，會跟著一起卡住；transform 的 transition 交給合成器，主執行緒塞住
+          時照樣在動。進度數字會停，但條子不會，看起來就不像當掉。
+        */
+        transition: transform 0.45s linear;
+        will-change: transform;
+    }
+
+    &__progress-text {
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+        color: var.$text-dark;
+    }
+
     &__actions {
         display: flex;
         gap: 1rem;
