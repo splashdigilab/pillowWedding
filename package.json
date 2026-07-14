@@ -8,7 +8,8 @@
     "dev:mobile": "nuxt dev --host 0.0.0.0",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "font:split": "node scripts/split-font.mjs"
   },
   "dependencies": {
     "@pinia/nuxt": "^0.11.3",
@@ -26,6 +27,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "cn-font-split": "^7.4.3",
     "p-retry": "^7.1.1",
     "sharp": "^0.35.3",
     "typescript": "^5.9.3",

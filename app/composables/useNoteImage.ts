@@ -5,9 +5,12 @@
  * 全部貼紙（1400px）、全部背景（1254px）、中文字體與每張便利貼的遮罩／陰影／混色暫存。
  * 壓成一張圖之後，牆上每張便利貼就只是一個 <img>，那些成本全部歸零。
  *
- * 這裡的前置流程（預載背景、強制載入圖片、內嵌字體、注入紙紋、iOS 預熱）每一步都是在
+ * 這裡的前置流程（預載背景、強制載入圖片、內嵌字體分包、注入紙紋、iOS 預熱）每一步都是在
  * 對抗 html-to-image 在 off-screen 節點上的已知問題。少任何一步，某些手機就會輸出
  * 空白圖或掉字體。修改前請先確認你知道那一步在擋什麼。
+ *
+ * 手機的失敗方式特別陰險：不會拋錯，而是安靜地輸出一張全透明的圖。所以輸出前一定要過
+ * isCanvasBlank 這關，否則空白便利貼會一路上傳到牆上（實際發生過，成因是整支字體太大）。
  */
 import { toCanvas } from 'html-to-image'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
@@ -17,6 +20,16 @@ const EXPORT_NODE_SIZE = 1080
 
 /** 上傳用的便利貼圖尺寸。牆上顯示 150px、最大放大 3 倍，800px 足夠且記憶體只有原本的一小部分 */
 export const UPLOAD_IMAGE_SIZE = 800
+
+/** 字體分包（由 scripts/split-font.mjs 產生，見該檔說明） */
+const FONT_CHUNK_DIR = '/fonts/chenyuluoyan'
+
+/** [檔名（不含副檔名）, "4e00-4e05,4e2d"] */
+type FontChunk = [string, string]
+
+let fontManifest: Promise<FontChunk[]> | null = null
+/** 分包 → base64 data URI。同一次送出會烘圖多次（預熱、重試），不重抓 */
+const fontChunkCache = new Map<string, string>()
 
 const blobToDataURL = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -29,19 +42,70 @@ const blobToDataURL = (blob: Blob): Promise<string> =>
 const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob | null> =>
   new Promise(resolve => canvas.toBlob(resolve, type, quality))
 
+/** "4e00-4e05,4e2d" 內是否含有 code 這個字 */
+const rangeCovers = (ranges: string, code: number): boolean =>
+  ranges.split(',').some(part => {
+    const [from, to] = part.split('-')
+    const start = parseInt(from!, 16)
+    return code >= start && code <= (to ? parseInt(to, 16) : start)
+  })
+
 export const useNoteImage = () => {
   /**
-   * html-to-image 若不自行提供 fontEmbedCSS，輸出圖會掉回系統字體（手機最明顯）。
-   * 全站只有 ChenYuluoyan 一支字體，同 origin，沒有 CORS 問題。
+   * 只把「這張便利貼真的用到的字」嵌進輸出圖。
+   *
+   * 為什麼不能整支字體塞進去：SVG 被當成 <img> 載入時無法向外抓任何資源，字體只能內嵌成
+   * data URI；而 ChenYuluoyan 是 4.6MB 的全字集手寫字型，base64 之後 6.4MB、URL-encode
+   * 進 SVG 是 6.8MB。桌機扛得住，手機的 WebKit／Chromium 解不動這麼大的 SVG——<img> 會
+   * onload 但畫不出東西，drawImage 於是畫出一張全透明的圖，牆上就出現空白便利貼。
+   *
+   * 改成只挑用到的分包後，實測 45 字的便利貼約 320KB，小了二十倍。
+   * 分包檔由 scripts/split-font.mjs 產生。
    */
-  const buildFontEmbedCSS = async (): Promise<string> => {
+  const buildFontEmbedCSS = async (text: string): Promise<string> => {
+    const codes = new Set(
+      Array.from(text)
+        .map(ch => ch.codePointAt(0)!)
+        .filter(code => code > 0x20)
+    )
+    if (!codes.size) return ''
+
     try {
-      const res = await fetch('/ChenYuluoyan-2.0-Thin.woff2')
-      if (!res.ok) return ''
-      const base64 = await blobToDataURL(await res.blob())
-      return `@font-face{font-family:'ChenYuluoyan';src:url('${base64}') format('woff2');font-weight:normal;font-style:normal;}`
+      fontManifest ??= fetch(`${FONT_CHUNK_DIR}/manifest.json`).then(res => {
+        if (!res.ok) throw new Error(`manifest ${res.status}`)
+        return res.json() as Promise<FontChunk[]>
+      })
+      const manifest = await fontManifest
+
+      const needed = manifest.filter(([, ranges]) =>
+        Array.from(codes).some(code => rangeCovers(ranges, code))
+      )
+
+      const faces = await Promise.all(
+        needed.map(async ([file, ranges]) => {
+          let dataUrl = fontChunkCache.get(file)
+          if (!dataUrl) {
+            const res = await fetch(`${FONT_CHUNK_DIR}/${file}.woff2`)
+            if (!res.ok) throw new Error(`分包 ${file} ${res.status}`)
+            dataUrl = await blobToDataURL(await res.blob())
+            fontChunkCache.set(file, dataUrl)
+          }
+          // 同一個 family 掛多個 face 時，unicode-range 是瀏覽器挑對分包的依據，不能省
+          return (
+            `@font-face{font-family:'ChenYuluoyan';src:url('${dataUrl}') format('woff2');` +
+            `font-weight:normal;font-style:normal;unicode-range:${ranges
+              .split(',')
+              .map(r => `U+${r}`)
+              .join(',')};}`
+          )
+        })
+      )
+
+      return faces.join('')
     } catch (e) {
+      // 抓不到分包就讓它掉回系統字體：字醜總比整張空白好，之後的空白偵測也還會擋一層
       console.warn('[NoteImage] 字體嵌入失敗:', e)
+      fontManifest = null
       return ''
     }
   }
@@ -178,6 +242,25 @@ export const useNoteImage = () => {
   }
 
   /**
+   * 輸出是不是一張全透明的圖。
+   *
+   * 手機上 html-to-image 失敗的方式不是丟例外，而是安靜地畫出空白：SVG 太大時 <img> 照樣
+   * onload，drawImage 卻什麼都沒畫上去。沒有這道檢查，空白便利貼就會一路上傳到牆上
+   * （而且重試機制永遠不會被觸發，因為根本沒人拋錯）。
+   */
+  const isCanvasBlank = (canvas: HTMLCanvasElement): boolean => {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return false
+
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    // 每隔幾十個像素抽一次 alpha 就夠：真的有畫東西的話，不可能整張都抽不到不透明的點
+    for (let i = 3; i < data.length; i += 4 * 31) {
+      if (data[i]! > 8) return false
+    }
+    return true
+  }
+
+  /**
    * 把 export node 畫成 canvas。呼叫前 node 必須已經掛載並完成 paint。
    * @param outputSize 產出的邊長（px）
    */
@@ -190,7 +273,7 @@ export const useNoteImage = () => {
     await forceLoadImages(node)
     await flattenMask(node)
 
-    const fontEmbedCSS = await buildFontEmbedCSS()
+    const fontEmbedCSS = await buildFontEmbedCSS(node.textContent || '')
     const textureStyle = await injectPaperTexture(node)
 
     try {
@@ -199,11 +282,16 @@ export const useNoteImage = () => {
       await toCanvas(node, { cacheBust: true, fontEmbedCSS, pixelRatio: 0.5 }).catch(() => {})
       await new Promise(resolve => setTimeout(resolve, 300))
 
-      return await toCanvas(node, {
+      const canvas = await toCanvas(node, {
         pixelRatio: outputSize / EXPORT_NODE_SIZE,
         cacheBust: true,
         fontEmbedCSS
       })
+
+      // 空白就當成失敗丟出去，讓外層的重試接手（bakeAndUpload）
+      if (isCanvasBlank(canvas)) throw new Error('便利貼烘圖結果為空白')
+
+      return canvas
     } finally {
       textureStyle?.remove()
     }
