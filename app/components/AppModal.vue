@@ -15,23 +15,31 @@
           </div>
 
           <!-- 進度條：只有 loading 且呼叫端有給 progress 時才出現 -->
-          <div v-if="loading && progress !== null" class="c-modal__progress">
-            <div
-              class="c-modal__progress-track"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              :aria-valuenow="clampedProgress"
-            >
-              <div
-                class="c-modal__progress-bar"
-                :style="{ transform: `scaleX(${clampedProgress / 100})` }"
-              ></div>
+          <Transition name="progress-reveal">
+            <div v-if="loading && progress !== null" class="c-modal__progress">
+              <div class="c-modal__progress-inner">
+                <div
+                  class="c-modal__progress-track"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  :aria-valuenow="clampedProgress"
+                >
+                  <div
+                    class="c-modal__progress-fill"
+                    :style="{ transform: `scaleX(${clampedProgress / 100})` }"
+                  ></div>
+                  <!-- 掃過整條軌道的微光：純 CSS 動畫，就算主執行緒被烘圖卡住也不會停 -->
+                  <div class="c-modal__progress-sheen"></div>
+                </div>
+
+                <p class="c-modal__progress-text">
+                  <span>{{ progressLabel }}</span>
+                  <span class="c-modal__progress-percent">{{ clampedProgress }}%</span>
+                </p>
+              </div>
             </div>
-            <p class="c-modal__progress-text">
-              {{ progressLabel }} {{ clampedProgress }}%
-            </p>
-          </div>
+          </Transition>
 
           <div class="c-modal__actions">
             <!-- Secondary/Cancel Button -->
@@ -156,9 +164,35 @@ const handleConfirm = () => {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
-  
+
   .c-modal {
     transform: scale(0.95);
+  }
+}
+
+/*
+  進度條的進場／退場：高度、外距、透明度一起動，讓它是「長出來」的而不是「彈出來」的。
+  高度的動畫細節（0fr → 1fr）在 _modal.scss 裡，這裡只負責把起訖狀態接上。
+*/
+.progress-reveal-enter-from,
+.progress-reveal-leave-to {
+  grid-template-rows: 0fr;
+  margin-bottom: 0;
+  opacity: 0;
+
+  .c-modal__progress-inner {
+    transform: translateY(8px);
+  }
+}
+
+@keyframes modal-progress-sheen {
+  /* 從軌道左緣外掃到右緣外；停在 100% 是為了每一輪之間留一個呼吸的間隔 */
+  0% {
+    transform: translateX(-100%);
+  }
+  70%,
+  100% {
+    transform: translateX(100%);
   }
 }
 </style>

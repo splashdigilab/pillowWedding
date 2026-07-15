@@ -1649,23 +1649,89 @@ const openSubmitModal = () => {
   }
 
   showSubmitModal.value = true
+  startSubmitPrewarm()
+}
 
-  // 確認視窗一開，便利貼的內容就定案了——把烘圖的準備工作全部搬到這裡做完，
-  // 使用者在讀「確定要上傳嗎」的那幾秒，素材已經抓好、export node 的圖也載好、遮罩也壓好了。
-  // 他按下確定時只剩下真正的烘圖（toCanvas）與上傳。
-  prefetchBakeAssets(
-    previewNoteData.value?.content || '',
-    previewNoteData.value?.style?.backgroundImage
+/**
+ * 送出前的預熱。
+ *
+ * 確認視窗一跳出來，便利貼的內容就定案了，而使用者讀「確定要上傳嗎」通常要一兩秒——這段時間
+ * 原本完全空著。更關鍵的是，原本按下確定後這四件事是「排隊」跑的：
+ *
+ *     讀柵欄設定 → 要 GPS 定位 → 查 Token → 烘圖 → 上傳 → 寫入 Firestore
+ *
+ * 但前三件（網路／定位）和烘圖（純 CPU）彼此毫無關係，沒有理由互相等。尤其 GPS 是整條流程裡
+ * 最貴的一步：室內拿一個高精度定位動輒好幾秒，而烘圖就這樣乾等著它。
+ *
+ * 所以改成視窗一開就四件事同時開跑，按下確定時通常都已經做完，只剩真正的上傳。
+ * 預熱失敗不要緊：confirmSubmit 找不到預熱結果時會自己重跑一次，錯誤處理完全走原本那條路。
+ */
+let prebakedBlob: Promise<Blob> | null = null
+let geoCheck: Promise<boolean> | null = null
+let tokenStatusCheck: Promise<string> | null = null
+
+/**
+ * 先把 rejection 接住，真正的錯誤處理留到 confirmSubmit（那裡才知道要跳哪個提示視窗）。
+ * 不接的話，預熱失敗會變成 unhandled rejection 噴進 Sentry。
+ */
+const holdError = <T>(promise: Promise<T>): Promise<T> => {
+  void promise.catch(() => {})
+  return promise
+}
+
+const startSubmitPrewarm = () => {
+  const bgUrl = previewNoteData.value?.style?.backgroundImage
+
+  prefetchBakeAssets(previewNoteData.value?.content || '', bgUrl)
+
+  const prewarmStart = performance.now()
+  prebakedBlob = holdError(
+    (async () => {
+      const node = await mountExportNode()
+      await warmExportNode(node, bgUrl)
+      // 讓確認視窗先把淡入動畫做完再烘圖：toCanvas 會把主執行緒吃滿，太早開始會讓視窗跳格
+      await new Promise(resolve => setTimeout(resolve, 300))
+      const blob = await bakeToBlob(node, bgUrl)
+      console.info(
+        `[Submit] 預熱烘圖完成，開視窗後 ${Math.round(performance.now() - prewarmStart)}ms（含等視窗動畫的 300ms）`
+      )
+      return blob
+    })()
   )
-  void mountExportNode()
-    .then(node => warmExportNode(node, previewNoteData.value?.style?.backgroundImage))
-    .catch(e => console.warn('[Editor] export node 預熱失敗（不影響送出）:', e))
+
+  // 柵欄若在後台關閉，validateGeoFenceBeforeSubmit 會在讀完設定後直接回 true，不會去要定位——
+  // 也就是不會平白跳出定位權限的詢問視窗
+  geoCheck = holdError(validateGeoFenceBeforeSubmit())
+
+  const token = loadToken()
+  if (tokenRequiredForSubmit.value && token) {
+    const { checkTokenStatus } = useFirestore()
+    tokenStatusCheck = holdError(checkTokenStatus(token).catch(() => 'unknown'))
+  }
+}
+
+const clearSubmitPrewarm = () => {
+  prebakedBlob = null
+  geoCheck = null
+  tokenStatusCheck = null
 }
 
 /** 取消送出：順手把預熱用的 export node 卸掉，它是一整棵便利貼 DOM，不要讓它一直佔著記憶體 */
 const cancelSubmit = () => {
   showSubmitModal.value = false
-  showExportNode.value = false
+
+  const pendingBake = prebakedBlob
+  clearSubmitPrewarm()
+
+  // 預熱的烘圖可能還在跑。中途把 export node 從 DOM 抽掉，只會讓它失敗、退避、再重試三次，
+  // 白白吃掉手機的 CPU——等它自己收工再卸載（結果直接丟掉，使用者已經按取消了）
+  if (pendingBake) {
+    void pendingBake.finally(() => {
+      if (!showSubmitModal.value) showExportNode.value = false
+    })
+  } else {
+    showExportNode.value = false
+  }
 }
 
 const previewNoteData = computed(() => {
@@ -1777,7 +1843,9 @@ const getCurrentPosition = (): Promise<GeolocationPosition> =>
   getCurrentPositionWithOptions({
     enableHighAccuracy: true,
     timeout: 12000,
-    maximumAge: 0
+    // 允許用 30 秒內的既有定位。原本是 0，等於每次都強迫手機重新測一次 GPS（室內動輒好幾秒）——
+    // 但柵欄半徑是幾十公尺起跳，使用者 30 秒內不可能走出範圍，這個嚴格度換不到任何安全性。
+    maximumAge: 30000
   }).catch(async (error: any) => {
     const normalized = mapGeoErrorFromAny(error)
     // 手機在室內或節電模式下容易 high accuracy timeout；改用低精度 + 允許快取位置再嘗試一次。
@@ -1887,13 +1955,20 @@ const confirmSubmit = async () => {
   isSubmitting.value = true
   startSubmitProgress()
 
+  // 診斷「上傳很慢」用的計時：分不清是烘圖、上傳還是 Firestore 慢之前，什麼都不用猜
+  const tSubmit = performance.now()
+  let tVerified = 0
+  let tBaked = 0
+  let tUploaded = 0
+
   try {
     const { createNote, checkTokenStatus } = useFirestore()
 
-    // GPS 合法區域檢查：若後台開啟限制，必須位於指定半徑內才能送出
+    // GPS 合法區域檢查：若後台開啟限制，必須位於指定半徑內才能送出。
+    // 這件事在確認視窗跳出來時就已經開跑（startSubmitPrewarm），這裡通常只是把結果領回來。
     let isWithinAllowedArea = false
     try {
-      isWithinAllowedArea = await validateGeoFenceBeforeSubmit()
+      isWithinAllowedArea = await (geoCheck ?? validateGeoFenceBeforeSubmit())
     } catch (geoError: any) {
       const normalizedGeoError = mapGeoErrorFromAny(geoError)
       showSubmitModal.value = false
@@ -1929,9 +2004,9 @@ const confirmSubmit = async () => {
       return
     }
 
-    // 1. 若啟用 token 驗證，先透過 checkTokenStatus 取得詳細錯誤原因
+    // 1. 若啟用 token 驗證，先透過 checkTokenStatus 取得詳細錯誤原因（同樣是預熱時就發出的請求）
     const status = tokenRequiredForSubmit.value
-      ? await checkTokenStatus(tokenForSubmit as string).catch(() => 'unknown')
+      ? await (tokenStatusCheck ?? checkTokenStatus(tokenForSubmit as string).catch(() => 'unknown'))
       : 'valid'
     
     if (status === 'expired') {
@@ -1967,37 +2042,47 @@ const confirmSubmit = async () => {
       return
     }
 
-    // 2. 烘圖：把整張便利貼壓成一張圖並上傳，牆／大螢幕／後台之後只需要吃這張圖。
-    //    失敗會自動重試（低階手機偶爾因記憶體壓力失敗，重跑一次通常就過）。
+    // 2. 烘圖：把整張便利貼壓成一張圖，牆／大螢幕／後台之後只需要吃這張圖。
+    //    正常情況下這張圖在使用者讀確認視窗時就已經烘好了（startSubmitPrewarm），這裡直接領走。
+    //    預熱失敗或還沒跑到才會走 ?? 後面那條，自己重烘一次。
+    const bgUrl = previewNoteData.value?.style?.backgroundImage
     const noteId = tokenForSubmit || crypto.randomUUID()
-    const exportNode = await mountExportNode()
-    const imageUrl = await bakeAndUpload(
-      exportNode,
-      previewNoteData.value?.style?.backgroundImage,
-      noteId,
-      {
-        onProgress: progress => {
-          if (progress.phase === 'bake') {
-            setSubmitPhase('bake')
-          } else {
-            setSubmitPhase('upload')
-            setSubmitPhaseFraction(progress.fraction)
-          }
-        }
-      }
+
+    tVerified = performance.now()
+    setSubmitPhase('bake')
+    const blob = await (
+      prebakedBlob ?? mountExportNode().then(node => bakeToBlob(node, bgUrl))
     )
 
-    // 3. 手繪圖已經烘進 imageUrl 裡，不必再把 base64 塞進 Firestore 文件。
+    // 3. 上傳：到這裡才碰網路。刻意等 GPS／Token 都過了才傳，不然被擋下來的送出會在 Storage
+    //    留下一堆沒人認領的孤兒檔案。
+    tBaked = performance.now()
+    setSubmitPhase('upload')
+    const imageUrl = await uploadWithRetry(blob, noteId, {
+      onProgress: fraction => setSubmitPhaseFraction(fraction)
+    })
+    tUploaded = performance.now()
+
+    // 4. 手繪圖已經烘進 imageUrl 裡，不必再把 base64 塞進 Firestore 文件。
     //    這是文件從 ~400KB 縮到 ~2KB 的原因，也讓 1MB 的單一文件上限不再是懸崖。
     const { drawing: _bakedDrawing, ...styleForUpload } = previewNoteData.value.style
 
-    // 4. 狀態正確(valid)或無法判別時，嘗試正式送出
+    // 5. 狀態正確(valid)或無法判別時，嘗試正式送出
     setSubmitPhase('save')
     await createNote(
       { content: previewNoteData.value.content, style: styleForUpload, imageUrl },
       tokenForSubmit
     )
     finishSubmitProgress()
+
+    const tSaved = performance.now()
+    console.info('[Submit] 按下確定後各階段耗時(ms):', {
+      驗證: Math.round(tVerified - tSubmit),
+      等烘圖: Math.round(tBaked - tVerified),
+      上傳: Math.round(tUploaded - tBaked),
+      寫入Firestore: Math.round(tSaved - tUploaded),
+      總計: Math.round(tSaved - tSubmit)
+    })
 
     // 上傳成功：清除草稿與快取的 Token
     clearDraft()
@@ -2039,6 +2124,8 @@ const confirmSubmit = async () => {
     isSubmitting.value = false
     // 不管走哪條路（成功、GPS 擋下、Token 失效、烘圖三次都失敗），進度條的計時器都要停掉
     stopSubmitProgress()
+    // 預熱的結果只對「這一次送出」有效：失敗後使用者回去改字再送，必須重新烘一張
+    clearSubmitPrewarm()
     // 烘圖用的 export node 是一份完整的便利貼 DOM（含 1254px 背景與 512px 貼紙），
     // 送出流程一結束就卸載，不要讓它一直佔著記憶體
     showExportNode.value = false
@@ -2048,7 +2135,7 @@ const confirmSubmit = async () => {
 import { useNoteImage } from '~/composables/useNoteImage'
 import { useSubmitProgress } from '~/composables/useSubmitProgress'
 
-const { renderToCanvas, bakeAndUpload, prefetchBakeAssets, warmExportNode } = useNoteImage()
+const { renderToCanvas, bakeToBlob, uploadWithRetry, prefetchBakeAssets, warmExportNode } = useNoteImage()
 
 /** 分享用的高解析度輸出（送出上傳用的是 800px，見 useNoteImage 的 UPLOAD_IMAGE_SIZE） */
 const SHARE_IMAGE_SIZE = 1620

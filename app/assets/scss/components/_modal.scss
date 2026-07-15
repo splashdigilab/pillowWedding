@@ -67,20 +67,42 @@
         }
     }
 
+    /*
+      進度條的展開／收合。
+      用 grid-template-rows 0fr → 1fr 來長高度，是因為內容高度未知時 max-height 只能亂猜一個
+      上限，猜太大會讓動畫尾巴空轉、猜太小會裁掉內容；0fr → 1fr 由瀏覽器自己算實際高度。
+    */
     &__progress {
+        display: grid;
+        grid-template-rows: 1fr;
         margin-bottom: 1.5rem;
+        opacity: 1;
+        transition:
+            grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.3s ease;
+    }
+
+    &__progress-inner {
+        overflow: hidden; /* 高度收合時把內容裁掉，不然會擠出容器 */
+        transform: translateY(0);
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     &__progress-track {
-        height: 8px;
+        position: relative;
+        height: 10px;
         border-radius: 999px;
-        background: rgba(0, 0, 0, 0.08);
+        background: rgba(106, 83, 56, 0.1);
+        box-shadow: inset 0 1px 2px rgba(106, 83, 56, 0.12);
         overflow: hidden;
     }
 
-    &__progress-bar {
-        height: 100%;
-        background: var.$selected-color;
+    &__progress-fill {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #efb0a0 0%, var.$selected-color 100%);
         transform: scaleX(0);
         transform-origin: left center;
 
@@ -89,14 +111,46 @@
           每一格都要重跑 layout，會跟著一起卡住；transform 的 transition 交給合成器，主執行緒塞住
           時照樣在動。進度數字會停，但條子不會，看起來就不像當掉。
         */
-        transition: transform 0.45s linear;
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         will-change: transform;
     }
 
+    &__progress-sheen {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.55) 50%,
+            rgba(255, 255, 255, 0) 100%
+        );
+        /* 同樣走合成器：這條微光是「還在動」的唯一保證，卡住的時候特別重要 */
+        animation: modal-progress-sheen 1.8s ease-in-out infinite;
+        will-change: transform;
+
+        /* 會暈車的人不該被一條無限循環的微光荼毒 */
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+            opacity: 0;
+        }
+    }
+
     &__progress-text {
-        margin-top: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin: 0.6rem 0 0;
         font-size: 0.875rem;
         color: var.$text-dark;
+    }
+
+    &__progress-percent {
+        font-weight: bold;
+        /* 等寬數字：不然 1 換成 8 的時候整行字會左右抽動 */
+        font-variant-numeric: tabular-nums;
     }
 
     &__actions {

@@ -114,6 +114,9 @@ export const useFirestore = () => {
 
         // 當後端 Rules 仍強制 token 寫入時，自動建立內部 token 後重送，
         // 讓前端在「不需 token」模式下仍可正常上傳。
+        // 這條備援路徑比正常路徑多 3 趟網路往返（失敗的 setDoc + 建 token + transaction），
+        // 若每次送出都走到這裡，代表 Firestore 規則和後台設定不同步，該修規則而不是靠備援。
+        console.warn('[Firestore] 無 token 寫入被規則擋下，改走自動建 token 的備援路徑')
         try {
           const autoTokenRef = await addDoc(collection(db, 'tokens'), {
             status: 'unused',

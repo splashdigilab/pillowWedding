@@ -307,12 +307,14 @@ export const useNoteImage = () => {
     bgUrl: string | undefined,
     outputSize: number
   ): Promise<HTMLCanvasElement> => {
+    const tPrep = performance.now()
     // 這幾步彼此不相干（載圖、壓遮罩、抓字體分包、抓紙紋），沒有理由排隊等
     const [, fontEmbedCSS, textureStyle] = await Promise.all([
       warmExportNode(node, bgUrl),
       buildFontEmbedCSS(node.textContent || ''),
       injectPaperTexture(node)
     ])
+    const tRender = performance.now()
 
     try {
       // 不開 cacheBust：素材全是同 origin 又設了 immutable 快取，cacheBust 只會讓每張圖
@@ -330,6 +332,9 @@ export const useNoteImage = () => {
       // 空白就當成失敗丟出去，讓外層的重試接手（bakeAndUpload）
       if (isCanvasBlank(canvas)) throw new Error('便利貼烘圖結果為空白')
 
+      console.info(
+        `[NoteImage] 烘圖計時：前置(載圖/字體/紙紋) ${Math.round(tRender - tPrep)}ms、toCanvas ${Math.round(performance.now() - tRender)}ms`
+      )
       return canvas
     } finally {
       textureStyle?.remove()
@@ -364,8 +369,14 @@ export const useNoteImage = () => {
   ): Promise<Blob> => {
     const canvas = await renderToCanvas(node, bgUrl, UPLOAD_IMAGE_SIZE)
 
+    const tEncode = performance.now()
     const webp = await canvasToBlob(canvas, 'image/webp', 0.85)
-    if (webp && webp.type === 'image/webp') return webp
+    if (webp && webp.type === 'image/webp') {
+      console.info(
+        `[NoteImage] 編碼 WebP ${Math.round(performance.now() - tEncode)}ms、${Math.round(webp.size / 1024)}KB`
+      )
+      return webp
+    }
 
     // iOS 16.4 以前的 Safari 不支援 canvas 輸出 WebP，退回 PNG（檔案較大，但透明度保得住）
     const png = await canvasToBlob(canvas, 'image/png')
@@ -397,6 +408,7 @@ export const useNoteImage = () => {
     // uploadBytesResumable 而不是 uploadBytes：只有前者會回報 bytesTransferred，進度條才有真實
     // 數字可讀。代價是多一趟開 session 的 round trip（便利貼圖只有一兩百 KB，本來一趟就送完），
     // 換掉「使用者盯著沒有反應的畫面」是划算的。
+    const tUpload = performance.now()
     const task = uploadBytesResumable(fileRef, blob, {
       contentType: blob.type,
       cacheControl: 'public, max-age=31536000, immutable'
@@ -415,12 +427,70 @@ export const useNoteImage = () => {
       )
     })
 
-    return await getDownloadURL(fileRef)
+    const tUrl = performance.now()
+    const url = await getDownloadURL(fileRef)
+    console.info(
+      `[NoteImage] 上傳計時：傳位元組 ${Math.round(tUrl - tUpload)}ms、取下載網址 ${Math.round(performance.now() - tUrl)}ms、檔案 ${Math.round(blob.size / 1024)}KB`
+    )
+    return url
+  }
+
+  /** 遞增退避：給瀏覽器一點時間回收上一次失敗留下的記憶體 */
+  const backoff = (attempt: number) =>
+    new Promise(resolve => setTimeout(resolve, 500 * attempt))
+
+  /**
+   * 烘圖成一張可上傳的 Blob，失敗自動重試。
+   * 低階手機偶爾會因為記憶體壓力失敗（或安靜地輸出空白，見 isCanvasBlank），重跑一次通常就過。
+   *
+   * 這件事跟「上傳」是分開的，因為它不需要網路、也不需要任何權限，所以可以在使用者還在讀
+   * 「確認上傳」視窗的時候就先做掉——編輯器就是這樣用的（見 editor.vue 的 prebake）。
+   */
+  const bakeToBlob = async (
+    node: HTMLElement,
+    bgUrl: string | undefined,
+    attempts = 3
+  ): Promise<Blob> => {
+    let lastError: unknown
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        return await renderToUploadBlob(node, bgUrl)
+      } catch (e) {
+        lastError = e
+        console.warn(`[NoteImage] 第 ${attempt}/${attempts} 次烘圖失敗:`, e)
+        if (attempt < attempts) await backoff(attempt)
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('便利貼圖片產生失敗')
+  }
+
+  /** 上傳 Blob，失敗自動重試（手機網路斷斷續續，一次失敗不代表傳不上去） */
+  const uploadWithRetry = async (
+    blob: Blob,
+    noteId: string,
+    options: { attempts?: number; onProgress?: (fraction: number) => void } = {}
+  ): Promise<string> => {
+    const { attempts = 3, onProgress } = options
+    let lastError: unknown
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        onProgress?.(0)
+        return await uploadNoteImage(blob, noteId, onProgress)
+      } catch (e) {
+        lastError = e
+        console.warn(`[NoteImage] 第 ${attempt}/${attempts} 次上傳失敗:`, e)
+        if (attempt < attempts) await backoff(attempt)
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('便利貼圖片上傳失敗')
   }
 
   /**
    * 烘圖 + 上傳，失敗自動重試。
-   * 烘圖在低階手機上偶爾會因為記憶體壓力失敗，重跑一次通常就過了，所以不要一次失敗就放棄。
    *
    * onProgress 只說「現在在烘圖」或「上傳到幾成」，不換算成整體百分比——整條送出流程還有
    * GPS 驗證與 Firestore 寫入，那個加權是呼叫端（編輯器）的事，見 useSubmitProgress。
@@ -431,29 +501,15 @@ export const useNoteImage = () => {
     noteId: string,
     options: { attempts?: number; onProgress?: (progress: BakeProgress) => void } = {}
   ): Promise<string> => {
-    const { attempts = 3, onProgress } = options
-    let lastError: unknown
+    const { attempts, onProgress } = options
 
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        onProgress?.({ phase: 'bake' })
-        const blob = await renderToUploadBlob(node, bgUrl)
+    onProgress?.({ phase: 'bake' })
+    const blob = await bakeToBlob(node, bgUrl, attempts)
 
-        onProgress?.({ phase: 'upload', fraction: 0 })
-        return await uploadNoteImage(blob, noteId, fraction =>
-          onProgress?.({ phase: 'upload', fraction })
-        )
-      } catch (e) {
-        lastError = e
-        console.warn(`[NoteImage] 第 ${attempt}/${attempts} 次烘圖上傳失敗:`, e)
-        if (attempt < attempts) {
-          // 遞增退避：給瀏覽器一點時間回收上一次失敗留下的記憶體
-          await new Promise(resolve => setTimeout(resolve, 500 * attempt))
-        }
-      }
-    }
-
-    throw lastError instanceof Error ? lastError : new Error('便利貼圖片上傳失敗')
+    return await uploadWithRetry(blob, noteId, {
+      attempts,
+      onProgress: fraction => onProgress?.({ phase: 'upload', fraction })
+    })
   }
 
   return {
@@ -463,6 +519,8 @@ export const useNoteImage = () => {
     renderToCanvas,
     renderToUploadBlob,
     uploadNoteImage,
+    bakeToBlob,
+    uploadWithRetry,
     bakeAndUpload
   }
 }
