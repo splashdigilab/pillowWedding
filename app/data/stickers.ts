@@ -29,6 +29,7 @@ const STICKER_IDS = [
   'sticker_people_08', 'sticker_people_09', 'sticker_people_10', 'sticker_people_11',
   'sticker_people_12', 'sticker_people_13', 'sticker_people_14', 'sticker_people_15',
   'sticker_people_16', 'sticker_people_17', 'sticker_people_18', 'sticker_people_19',
+  'sticker_people_20', 'sticker_people_21',
 ]
 
 /**
