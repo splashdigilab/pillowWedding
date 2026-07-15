@@ -13,7 +13,7 @@
  * isCanvasBlank 這關，否則空白便利貼會一路上傳到牆上（實際發生過，成因是整支字體太大）。
  */
 import { toCanvas } from 'html-to-image'
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { ref as storageRef, uploadBytes } from 'firebase/storage'
 
 /** export node 的實際尺寸，pixelRatio 以此為基準換算 */
 const EXPORT_NODE_SIZE = 1080
@@ -405,32 +405,32 @@ export const useNoteImage = () => {
     const suffix = crypto.randomUUID().slice(0, 8)
     const fileRef = storageRef($storage as any, `notes/${noteId}-${suffix}.${ext}`)
 
-    // uploadBytesResumable 而不是 uploadBytes：只有前者會回報 bytesTransferred，進度條才有真實
-    // 數字可讀。代價是多一趟開 session 的 round trip（便利貼圖只有一兩百 KB，本來一趟就送完），
-    // 換掉「使用者盯著沒有反應的畫面」是划算的。
+    // 自己指定下載 token：Firebase 的下載網址就是「固定前綴 + 檔案路徑 + ?token=xxx」，而這個
+    // token 平常是 getDownloadURL 上傳完再多打一趟去拿的。改成在上傳 metadata 裡自己塞一個 UUID
+    // 當 token，上傳一結束就能在本地把網址組出來，省掉那趟 round trip（會場網路上就是那卡在 95%
+    // 的一兩秒）。
+    //
+    // 便利貼圖只有一兩百 KB，這裡用一次就送完的 uploadBytes（而非 resumable），連開 session 的
+    // 那趟也省掉。代價是沒有 bytesTransferred 可讀——但上傳現在快到進度條用時間逼近就夠了，
+    // 不再需要真實位元組比例。
+    const downloadToken = crypto.randomUUID()
+
     const tUpload = performance.now()
-    const task = uploadBytesResumable(fileRef, blob, {
+    onProgress?.(0)
+    await uploadBytes(fileRef, blob, {
       contentType: blob.type,
-      cacheControl: 'public, max-age=31536000, immutable'
+      cacheControl: 'public, max-age=31536000, immutable',
+      customMetadata: { firebaseStorageDownloadTokens: downloadToken }
     })
+    onProgress?.(1)
 
-    await new Promise<void>((resolve, reject) => {
-      task.on(
-        'state_changed',
-        snapshot => {
-          if (snapshot.totalBytes > 0) {
-            onProgress?.(snapshot.bytesTransferred / snapshot.totalBytes)
-          }
-        },
-        reject,
-        resolve
-      )
-    })
+    // 這條網址跟 getDownloadURL 產出的完全同格式；bucket／路徑都從 ref 拿，token 是我們自己給的
+    const url =
+      `https://firebasestorage.googleapis.com/v0/b/${fileRef.bucket}` +
+      `/o/${encodeURIComponent(fileRef.fullPath)}?alt=media&token=${downloadToken}`
 
-    const tUrl = performance.now()
-    const url = await getDownloadURL(fileRef)
     console.info(
-      `[NoteImage] 上傳計時：傳位元組 ${Math.round(tUrl - tUpload)}ms、取下載網址 ${Math.round(performance.now() - tUrl)}ms、檔案 ${Math.round(blob.size / 1024)}KB`
+      `[NoteImage] 上傳計時：${Math.round(performance.now() - tUpload)}ms、檔案 ${Math.round(blob.size / 1024)}KB`
     )
     return url
   }
