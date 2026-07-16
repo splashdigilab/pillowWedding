@@ -13,7 +13,7 @@
  * isCanvasBlank 這關，否則空白便利貼會一路上傳到牆上（實際發生過，成因是整支字體太大）。
  */
 import { toCanvas } from 'html-to-image'
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { ref as storageRef, uploadBytesResumable } from 'firebase/storage'
 
 /** export node 的實際尺寸，pixelRatio 以此為基準換算 */
 const EXPORT_NODE_SIZE = 1080
@@ -427,13 +427,20 @@ export const useNoteImage = () => {
       )
     })
 
-    // getDownloadURL 是上傳完「多打一趟去拿下載網址」，也就是卡在 95% 的那一兩秒。
-    // 曾試著改成上傳時自己指定 token、本地組網址來省掉這趟，但這個專案的 Storage 不允許
-    // 客戶端設 firebaseStorageDownloadTokens（上傳會在 finalize 噴 storage/unknown），所以維持原樣。
-    const tUrl = performance.now()
-    const url = await getDownloadURL(fileRef)
+    // notes/ 底下的物件已在 Storage bucket 設為公開讀取（allUsers:objectViewer），下載網址因此可以
+    // 直接用「storage.googleapis.com/<bucket>/<路徑>」在本地組出來，免掉 getDownloadURL 那趟
+    // round trip——那趟就是送出時卡在 95% 的一兩秒。
+    //
+    // 為什麼不能像以前那樣自己塞 token 走 firebasestorage.googleapis.com：這個專案的 Storage 不允許
+    // 客戶端設 firebaseStorageDownloadTokens，那樣上傳會在 finalize 直接噴 storage/unknown。
+    // 改走 GCS 公開網址就沒有 token 的事，也不必再問伺服器。
+    //
+    // 檔名只含 UUID／token／隨機字尾＋副檔名，全是 URL 安全字元，不需再 encode。
+    // 舊便利貼存的是帶 token 的網址，仍可正常讀取，兩種格式並存不用遷移。
+    const url = `https://storage.googleapis.com/${fileRef.bucket}/${fileRef.fullPath}`
+
     console.info(
-      `[NoteImage] 上傳計時：傳位元組 ${Math.round(tUrl - tUpload)}ms、取下載網址 ${Math.round(performance.now() - tUrl)}ms、檔案 ${Math.round(blob.size / 1024)}KB`
+      `[NoteImage] 上傳計時：${Math.round(performance.now() - tUpload)}ms、檔案 ${Math.round(blob.size / 1024)}KB`
     )
     return url
   }
