@@ -20,10 +20,12 @@ const toPaths = (id: string) => {
 }
 
 const STICKER_IDS = [
+  'sticker_logo_00',
   'sticker-1_0000', 'sticker-1_0001', 'sticker-1_0002', 'sticker-1_0003',
   'sticker-1_0004', 'sticker-1_0005', 'sticker-1_0006', 'sticker-1_0007',
   'sticker-1_0008', 'sticker-1_0009', 'sticker-1_0010', 'sticker-1_0011',
-  'sticker-1_0012', 'sticker-1_0013', 'sticker-1_0014',
+  'sticker-1_0012', 'sticker-1_0013', 'sticker-1_0014', 'sticker-1_0015',
+  'sticker-1_0016', 'sticker-1_0017', 'sticker-1_0018',
   'sticker_people_00', 'sticker_people_01', 'sticker_people_02', 'sticker_people_03',
   'sticker_people_04', 'sticker_people_05', 'sticker_people_06', 'sticker_people_07',
   'sticker_people_08', 'sticker_people_09', 'sticker_people_10', 'sticker_people_11',
