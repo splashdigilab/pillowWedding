@@ -1623,6 +1623,44 @@ const {
   stop: stopSubmitProgress
 } = useSubmitProgress()
 
+/**
+ * ?debug=1 的送出計時顯示。
+ *
+ * 各階段的計時 log 本來就有（[Submit]／[NoteImage]／[Firestore]），但現場的手機接不了
+ * console。網址帶上 ?debug=1 後，從開確認視窗起把這些 log 擷取下來，送出結束（成功或失敗）
+ * 直接疊在提示視窗裡顯示——哪一段慢、有沒有走到規則備援路徑、檔案多大，一眼就看得到。
+ */
+const submitDebugEnabled = computed(() => route.query.debug !== undefined)
+const submitDebugLogs: string[] = []
+let submitDebugPatched = false
+
+const patchConsoleForSubmitDebug = () => {
+  if (submitDebugPatched) return
+  submitDebugPatched = true
+  for (const level of ['info', 'warn', 'error'] as const) {
+    const original = console[level].bind(console)
+    console[level] = (...args: unknown[]) => {
+      original(...args)
+      const text = args
+        .map(a => {
+          if (typeof a === 'string') return a
+          try { return JSON.stringify(a) } catch { return String(a) }
+        })
+        .join(' ')
+      if (/\[(Submit|NoteImage|Firestore)\]/.test(text)) submitDebugLogs.push(text)
+    }
+  }
+}
+
+const submitDebugHtml = () =>
+  submitDebugLogs.map(line => line.replace(/</g, '&lt;')).join('<br>')
+
+/** debug 模式下把計時 log 疊進目前開著的錯誤提示，失敗時也看得到卡在哪段 */
+const appendSubmitDebugToAlert = () => {
+  if (!submitDebugEnabled.value || !submitDebugLogs.length) return
+  alertMessage.value += '<br><br>⏱️ 計時 log：<br>' + submitDebugHtml()
+}
+
 const openSubmitModal = () => {
   const hasContent = textBlocks.value.some(b => b.content.trim())
   if (!hasContent) {
@@ -1646,6 +1684,11 @@ const openSubmitModal = () => {
   if (tokenRequiredForSubmit.value && !token) {
     showAlert(TOKEN_ALERT_MESSAGE, TOKEN_ALERT_TITLE, TOKEN_ALERT_ICON)
     return
+  }
+
+  if (submitDebugEnabled.value) {
+    submitDebugLogs.length = 0
+    patchConsoleForSubmitDebug()
   }
 
   showSubmitModal.value = true
@@ -2102,7 +2145,17 @@ const confirmSubmit = async () => {
     }
 
     showSubmitModal.value = false
-    router.push('/queue-status')
+    if (submitDebugEnabled.value) {
+      showAlert(submitDebugHtml() || '（沒有擷取到計時 log）', '送出計時（debug）', '⏱️', {
+        confirmText: '繼續',
+        onConfirm: () => {
+          showAlertModal.value = false
+          router.push('/queue-status')
+        }
+      })
+    } else {
+      router.push('/queue-status')
+    }
   } catch (e: any) {
     showSubmitModal.value = false // 關閉「確認上傳」的 Modal，讓錯誤提示能正常顯示在最上層
     console.error('提交失敗:', e)
@@ -2120,6 +2173,7 @@ const confirmSubmit = async () => {
     } else {
       showAlert(`提交失敗：${e?.message || '請稍後再試'}`)
     }
+    appendSubmitDebugToAlert()
   } finally {
     isSubmitting.value = false
     // 不管走哪條路（成功、GPS 擋下、Token 失效、烘圖三次都失敗），進度條的計時器都要停掉

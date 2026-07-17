@@ -60,7 +60,14 @@
       "Bash(node wall.mjs)",
       "Bash(git check-ignore *)",
       "Bash(perl -pi -e 's/submitProgress\\\\.start\\\\\\(\\\\\\)/startSubmitProgress\\(\\)/g; s/submitProgress\\\\.setPhaseFraction\\\\\\(/setSubmitPhaseFraction\\(/g; s/submitProgress\\\\.setPhase\\\\\\(/setSubmitPhase\\(/g; s/submitProgress\\\\.finish\\\\\\(\\\\\\)/finishSubmitProgress\\(\\)/g; s/submitProgress\\\\.stop\\\\\\(\\\\\\)/stopSubmitProgress\\(\\)/g' app/pages/editor.vue)",
-      "Bash(set -e)"
+      "Bash(set -e)",
+      "Bash(node _upload-test.mjs)",
+      "Bash(gcloud storage *)",
+      "Read(//dev/**)",
+      "Bash(firebase projects:list)",
+      "Bash(gcloud auth *)",
+      "Bash(gcloud config *)",
+      "Bash(tee ruleset_result.json)"
     ]
   }
 }

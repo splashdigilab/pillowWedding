@@ -1,0 +1,94 @@
+rules_version = '2';
+
+// Firestore 規則。部署：firebase deploy --only firestore:rules
+// 或 Firebase Console → Firestore Database → 規則 貼上。
+//
+// ⚠️ 這份檔案是 2026-07-17 從線上（ruleset c8112158）抓回來收進 repo 的。之後請一律改這裡
+//    再部署，不要只在 Console 改——之前規則只活在 Console 上，跟前端的「Token 驗證關閉」
+//    模式脫了鉤：規則一律要求有效 token，前端卻走無 token 路徑，導致每一次送出都被擋下、
+//    默默改走「自動建 token + transaction」的備援路徑，多付 3 趟到 nam5（美國）的往返，
+//    這就是「送出便利貼超過十秒」的最大單一成因。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== Admin（Email 白名單）=====
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in [
+          "splash.digilab@gmail.com",
+          "abc@gmail.com"
+        ];
+    }
+
+    // 前台訪客可讀的 system 文件（與專案程式對齊）
+    function isPublicSystemDoc(docId) {
+      return docId in [
+        'editor_token_requirement',
+        'editor_geo_fence',
+        'active_token',
+        'canvas_video',
+        'current_state'
+      ];
+    }
+
+    // 後台的「Token 驗證」開關。文件不存在或 enabled != true 都視為關閉——
+    // 與前端 editor.vue 監聽 system/editor_token_requirement 的判斷完全一致。
+    function tokenRequirementEnabled() {
+      let togglePath = /databases/$(database)/documents/system/editor_token_requirement;
+      return exists(togglePath) && get(togglePath).data.enabled == true;
+    }
+
+    // ===== Token 驗證（30 分鐘有效）=====
+    function isValidTokenForCreate(tokenId, newData) {
+      let sameToken = newData.token == tokenId;
+      let tokenPath = /databases/$(database)/documents/tokens/$(tokenId);
+      return sameToken
+        && exists(tokenPath)
+        && get(tokenPath).data.status == "unused"
+        && request.time <= get(tokenPath).data.createdAt + duration.value(1800, 's');
+    }
+
+    // ===== queue_pending =====
+    match /queue_pending/{tokenId} {
+      // 開關關閉時允許直接建立（doc id 需寫回 token 欄位，與 createNote 的無 token 路徑一致）。
+      // 這不會放寬實際的攻擊面：tokens 本來就開放任何人建立 unused token，
+      // 擋下無 token 寫入只是逼前端多繞三趟自建 token，安全上等價、速度上慢 3 秒。
+      allow create: if (!tokenRequirementEnabled() && request.resource.data.token == tokenId)
+                    || isValidTokenForCreate(tokenId, request.resource.data);
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ===== queue_history =====
+    match /queue_history/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ===== tokens =====
+    match /tokens/{id} {
+      allow read: if true;
+
+      // Admin 或訪客自動建 token（僅允許新建為 unused）
+      allow create: if isAdmin() || (
+        request.resource.data.status == 'unused'
+      );
+
+      allow delete: if isAdmin();
+
+      allow update: if isAdmin() || (
+        resource.data.status == "unused"
+        && request.resource.data.status == "used"
+      );
+    }
+
+    // ===== system =====
+    match /system/{docId} {
+      allow read: if isPublicSystemDoc(docId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
