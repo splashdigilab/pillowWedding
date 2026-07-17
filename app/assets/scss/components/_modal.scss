@@ -75,11 +75,11 @@
     &__progress {
         display: grid;
         grid-template-rows: 1fr;
-        margin-bottom: 1.5rem;
+        margin-top: 1.5rem;
         opacity: 1;
         transition:
             grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-            margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            margin-top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
             opacity 0.3s ease;
     }
 

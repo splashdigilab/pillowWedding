@@ -14,6 +14,31 @@
             <slot name="preview"></slot>
           </div>
 
+          <div class="c-modal__actions">
+            <!-- Secondary/Cancel Button -->
+            <button 
+              v-if="cancelText"
+              class="c-button c-button--secondary" 
+              @click="handleCancel"
+              :disabled="loading"
+            >
+              {{ cancelText }}
+            </button>
+            <slot name="secondary-action"></slot>
+
+            <!-- Primary/Confirm Button -->
+            <button 
+              v-if="confirmText"
+              class="c-button" 
+              :class="confirmButtonClass"
+              @click="handleConfirm"
+              :disabled="loading"
+            >
+              {{ loading ? loadingText : confirmText }}
+            </button>
+            <slot name="primary-action"></slot>
+          </div>
+
           <!-- 進度條：只有 loading 且呼叫端有給 progress 時才出現 -->
           <Transition name="progress-reveal">
             <div v-if="loading && progress !== null" class="c-modal__progress">
@@ -40,31 +65,6 @@
               </div>
             </div>
           </Transition>
-
-          <div class="c-modal__actions">
-            <!-- Secondary/Cancel Button -->
-            <button 
-              v-if="cancelText"
-              class="c-button c-button--secondary" 
-              @click="handleCancel"
-              :disabled="loading"
-            >
-              {{ cancelText }}
-            </button>
-            <slot name="secondary-action"></slot>
-
-            <!-- Primary/Confirm Button -->
-            <button 
-              v-if="confirmText"
-              class="c-button" 
-              :class="confirmButtonClass"
-              @click="handleConfirm"
-              :disabled="loading"
-            >
-              {{ loading ? loadingText : confirmText }}
-            </button>
-            <slot name="primary-action"></slot>
-          </div>
         </div>
       </div>
     </Transition>
@@ -177,7 +177,7 @@ const handleConfirm = () => {
 .progress-reveal-enter-from,
 .progress-reveal-leave-to {
   grid-template-rows: 0fr;
-  margin-bottom: 0;
+  margin-top: 0;
   opacity: 0;
 
   .c-modal__progress-inner {
