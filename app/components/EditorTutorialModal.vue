@@ -150,7 +150,7 @@ function finish() {
   emit('update:modelValue', false)
   emit('finish')
   if (typeof window !== 'undefined') {
-    localStorage.setItem('hasSeenWillMusicTutorial', 'true')
+    localStorage.setItem('hasSeenWeddingTutorial', 'true')
   }
 }
 

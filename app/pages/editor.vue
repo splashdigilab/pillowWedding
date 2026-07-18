@@ -761,7 +761,7 @@ const GPS_OUTSIDE_MESSAGE = '您目前不在合法上傳區域內，請移動到
 /** 設為 false 時略過上傳前 GPS／地理柵欄驗證 */
 const ENABLE_GPS_VALIDATION = false
 const TOKEN_DISABLED_SUBMIT_COOLDOWN_MS = 0 * 60 * 1000
-const TOKEN_DISABLED_LAST_SUBMIT_AT_KEY = 'willmusic_token_disabled_last_submit_at'
+const TOKEN_DISABLED_LAST_SUBMIT_AT_KEY = 'wedding_token_disabled_last_submit_at'
 const tokenRequiredForSubmit = ref(false)
 let unsubTokenRequirement: (() => void) | null = null
 
@@ -2221,17 +2221,17 @@ const handleShare = async () => {
 
     const dataUrl = canvas.toDataURL('image/png')
     const blob = await (await fetch(dataUrl)).blob()
-    const file = new File([blob], 'willmusic-note.png', { type: 'image/png' })
+    const file = new File([blob], 'wedding-note.png', { type: 'image/png' })
 
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
-        title: 'WillMusic 便利貼',
+        title: '佑丞 & 子萱 婚禮便利貼',
         text: '這是我剛畫好的便利貼！',
         files: [file]
       })
     } else {
       const link = document.createElement('a')
-      link.download = 'willmusic-note.png'
+      link.download = 'wedding-note.png'
       link.href = dataUrl
       link.click()
     }
@@ -2350,7 +2350,7 @@ const checkInitialModals = async () => {
     showDraftModal.value = true
   } else {
     // 沒有草稿時，檢查是否看過教學
-    const hasSeen = localStorage.getItem('hasSeenWillMusicTutorial')
+    const hasSeen = localStorage.getItem('hasSeenWeddingTutorial')
     if (!hasSeen) {
       showTutorialModal.value = true
     }

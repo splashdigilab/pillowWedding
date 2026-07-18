@@ -1,7 +1,7 @@
 import type { ScreenSyncMessage } from '~/types/screen-sync'
 
-const CHANNEL_NAME = 'willmusic-screen-sync'
-const SINGLETON_KEY = '__willmusic_screen_sync__'
+const CHANNEL_NAME = 'wedding-screen-sync'
+const SINGLETON_KEY = '__wedding_screen_sync__'
 
 type MessageHandler = (msg: ScreenSyncMessage) => void
 

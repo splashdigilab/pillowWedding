@@ -32,15 +32,17 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'WillMusic - Post Board',
+      title: '佑丞 & 子萱 婚禮留言板',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' },
-        { name: 'description', content: 'Interactive digital sticky notes for K-Pop record store' }
+        { name: 'description', content: '佑丞 & 子萱 婚禮留言板，互動式數位便利貼' }
       ],
       link: [
         // 全站只用自架的 ChenYuluoyan（見 assets/scss/base/_global.scss），不再拉 Google Fonts
-        { rel: 'preload', href: '/ChenYuluoyan-2.0-Thin.woff2', as: 'font', type: 'font/woff2', crossorigin: '' }
+        { rel: 'preload', href: '/ChenYuluoyan-2.0-Thin.woff2', as: 'font', type: 'font/woff2', crossorigin: '' },
+        // favicon 使用 logo 圖
+        { rel: 'icon', type: 'image/webp', href: '/system/logo.webp' }
       ],
       ...(gtmId ? {
         script: [

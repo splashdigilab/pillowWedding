@@ -73,7 +73,7 @@ interface ConductorState {
 
 /* ─── Singleton（跨 HMR 保持同一份狀態） ─── */
 
-const KEY = '__willmusic_conductor__'
+const KEY = '__wedding_conductor__'
 
 function getSingleton(): ConductorState {
     const g = globalThis as any

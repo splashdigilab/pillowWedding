@@ -6,7 +6,7 @@ import type { Ref } from 'vue'
  * 全域單例狀態（跨 HMR 持久化）
  * 使用 globalThis 確保 Vite HMR 替換模組時不會產生多個實例
  */
-const SINGLETON_KEY = '__willmusic_queue_singleton__'
+const SINGLETON_KEY = '__wedding_queue_singleton__'
 
 interface QueueSingleton {
   queue: Ref<QueuePendingItem[]>

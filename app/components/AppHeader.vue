@@ -5,7 +5,7 @@
       <span class="c-header__icon" style="--icon: url('/back-btn.svg')" aria-hidden="true" />
     </button>
     <div class="c-header__logo">
-      <img src="/system/logo.webp" alt="WillMusic Logo" />
+      <img src="/system/logo.webp" alt="佑丞 & 子萱 婚禮留言板" />
     </div>
     <div v-if="$slots.trailing || showHelp" class="c-header__trailing">
       <slot name="trailing">

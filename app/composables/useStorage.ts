@@ -3,8 +3,8 @@
  */
 import type { DraftData } from '~/types'
 
-const DRAFT_KEY = 'willmusic_draft'
-const TOKEN_KEY = 'willmusic_token'
+const DRAFT_KEY = 'wedding_draft'
+const TOKEN_KEY = 'wedding_token'
 
 /** 從 localStorage 解析出的 objectLayerOrder 做複製並將值轉成 number，避免字串或參考問題 */
 function normalizeObjectLayerOrder(
